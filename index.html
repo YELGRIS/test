@@ -195,12 +195,15 @@
   .payment-qr-preview .qr-block{text-align:center; background:var(--primary-light); border-radius:var(--radius); padding:3px;}
 
   .image-wrap{
-    width:100%; margin-top:0; border-radius:22px;
+    width:100%; max-width:400px; margin:0 auto; border-radius:22px;
     box-shadow: 0 1px 2px rgba(0,0,0,0.10), 0 6px 14px rgba(0,0,0,0.10), 0 16px 32px rgba(0,0,0,0.08);
     overflow:hidden; background:#ffffff; padding:2px; box-sizing:border-box;
   }
+  /* Mirrors the exported PNG's 9:16 portrait framing on screen: at least
+     as tall as a 9:16 box for the common short bill (min-height), but
+     free to grow past it rather than clip an exceptionally long one. */
   #orderImage{
-    width:100%; background:#fff; font-family:'Inter',sans-serif; color:var(--ink); 
+    width:100%; min-height:calc((400px - 4px) * 16 / 9); background:#fff; font-family:'Inter',sans-serif; color:var(--ink);
     border:none; outline:none; margin:0; padding:0; overflow:hidden; box-sizing:border-box;
     border-radius:20px;
   }
@@ -224,6 +227,7 @@
   table.it thead th{background:var(--primary); color:#fff; padding:6px 2px; font-size:13px; text-transform:uppercase; font-weight:800;}
   table.it td{border:1px solid #d8e6e6; padding:4px 2px; text-align:center; font-weight:700;}
   table.it td.d{text-align:left;}
+  table.it td.amt-cell{text-align:right;}
   table.it td.empty{color:#94a4a5; font-style:italic;}
   .img-item-name{font-weight:800;}
   .img-free-lbl{font-size:12px; color:#1a7d3a; font-weight:900;}
@@ -730,6 +734,9 @@
       <button type="button" class="close-btn" onclick="toggleModal('helpModal', false); openManageItemsModal();">🛠 Manage Items</button>
       <button type="button" class="close-btn" onclick="toggleModal('helpModal', false); openManagePaymentModal();">💳 Manage Payment Methods</button>
       <button class="close-btn" onclick="toggleModal('helpModal', false)">Close</button>
+    </div>
+    <div class="modal-actions" style="margin-top:0;">
+      <button type="button" class="close-btn" style="background:#5A2D82;" onclick="window.open('manage.html','_blank')">⚙️ Manage Fixed Values</button>
     </div>
   </div>
 </div>
@@ -1811,7 +1818,7 @@ function orderImageTemplate(data, nonCashAllocations){
       <td>${r.qty}</td>
       <td>${r.freeVal > 0 ? `<span class="img-free-lbl">${r.freeVal}</span>` : '-'}</td>
       <td>${fmt(r.rate)}</td>
-      <td>${fmt(r.amt)}</td>
+      <td class="amt-cell">${fmt(r.amt)}</td>
     </tr>`;
   }).join('') || `<tr><td colspan="6" class="empty">No items added</td></tr>`;
 
