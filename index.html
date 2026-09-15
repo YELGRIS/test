@@ -114,12 +114,12 @@
   table.items tbody tr:nth-child(6n+5) td{background:var(--row-5);}
   table.items tbody tr:nth-child(6n+0) td{background:var(--row-6);}
   
-  /* Widths proportional to field character widths: Sr.No 1, Description 25, Qty 5, Free 3, Rate 6, Amount 7 (47 total) */
+  /* Widths proportional to field character widths: Sr.No 1, Description 25, Qty 5, Free 3, Rate 6, Amount 7 (47 total) — Qty/Free/Rate then widened 20% further, taken from Description */
   table.items th:nth-child(1), table.items td:nth-child(1){width:2.13%;}
-  table.items th:nth-child(2), table.items td:nth-child(2){width:53.19%;}
-  table.items th:nth-child(3), table.items td:nth-child(3){width:10.64%;}
-  table.items th:nth-child(4), table.items td:nth-child(4){width:6.38%;}
-  table.items th:nth-child(5), table.items td:nth-child(5){width:12.77%;}
+  table.items th:nth-child(2), table.items td:nth-child(2){width:47.23%;}
+  table.items th:nth-child(3), table.items td:nth-child(3){width:12.77%;}
+  table.items th:nth-child(4), table.items td:nth-child(4){width:7.66%;}
+  table.items th:nth-child(5), table.items td:nth-child(5){width:15.32%;}
   table.items th:nth-child(6), table.items td:nth-child(6){width:14.89%;}
   
   input.desc, input.qty, input.free-qty, input.rate{width:100%; min-width:0; box-sizing:border-box; font-size:14px; padding:4px 2px; text-align:center; font-weight:800; border:1px solid rgba(255,165,0,0.3); border-radius:var(--radius); background:rgba(255,255,255,0.9); transition:all 0.2s;}
@@ -169,14 +169,14 @@
   .payment-qr-preview .qr-block{text-align:center; background:var(--primary-light); border-radius:var(--radius); padding:6px;}
 
   .image-wrap{
-    width:100%; margin-top:0; border-radius:22px;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.10), 0 6px 14px rgba(0,0,0,0.10), 0 16px 32px rgba(0,0,0,0.08);
-    overflow:hidden; background:#ffffff; padding:2px; box-sizing:border-box;
+    width:100%; margin-top:0; border-radius:0;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.10);
+    overflow:hidden; background:#ffffff; padding:0; box-sizing:border-box;
   }
   #orderImage{
     width:100%; background:#fff; font-family:'Inter',sans-serif; color:var(--ink); 
     border:none; outline:none; margin:0; padding:0; overflow:hidden; box-sizing:border-box;
-    border-radius:20px;
+    border-radius:0;
   }
 
   .order-header{display:flex; align-items:center; justify-content:space-between; background:linear-gradient(120deg,var(--primary),var(--secondary)); color:#fff; padding:10px; width:100%; box-sizing:border-box;}
@@ -1428,6 +1428,11 @@ function subscribeConfigCloudSync(){
   if(!window.FB) return;
   const { db, doc, onSnapshot } = window.FB;
   configUnsubscribers.forEach(unsub => { try{ unsub(); }catch(e){} });
+
+  function saveSettingsLocal(){
+    try{ localStorage.setItem(LS_SETTINGS_KEY, JSON.stringify({ company: CONFIG.company, scanNote: CONFIG.scanNote })); }catch(e){}
+  }
+
   configUnsubscribers = [
     onSnapshot(doc(db, 'config', 'items'), snap => {
       if(!snap.exists()) return;
@@ -1437,7 +1442,7 @@ function subscribeConfigCloudSync(){
         try{ localStorage.setItem(LS_ITEMS_KEY, JSON.stringify(CONFIG.items)); }catch(e){}
         scheduleUpdate();
       }
-    }, () => {}),
+    }, err => console.error('[config sync] items error', err)),
     onSnapshot(doc(db, 'config', 'receivers'), snap => {
       if(!snap.exists()) return;
       const list = snap.data().list;
@@ -1447,15 +1452,44 @@ function subscribeConfigCloudSync(){
         renderPaymentRows();
         scheduleUpdate();
       }
-    }, () => {}),
+    }, err => console.error('[config sync] receivers error', err)),
+
+    // Settings can live in more than one shape depending on how the cloud
+    // data was originally entered — try all of them and use whichever
+    // actually has data, instead of assuming one fixed layout:
+    //   config/settings { company:{...}, scanNote:{en1,ta1,en2,ta2} }  (nested)
+    //   config/company   { name, address }                            (own doc)
+    //   config/scanNote  { en1, ta1, en2, ta2 }                        (own doc)
     onSnapshot(doc(db, 'config', 'settings'), snap => {
+      console.log('[config sync] config/settings ->', snap.exists() ? snap.data() : '(does not exist)');
       if(!snap.exists()) return;
       const data = snap.data();
       if(data.company) CONFIG.company = data.company;
       if(data.scanNote) CONFIG.scanNote = data.scanNote;
-      try{ localStorage.setItem(LS_SETTINGS_KEY, JSON.stringify({ company: CONFIG.company, scanNote: CONFIG.scanNote })); }catch(e){}
+      saveSettingsLocal();
       scheduleUpdate();
-    }, () => {})
+    }, err => console.error('[config sync] settings error', err)),
+    onSnapshot(doc(db, 'config', 'company'), snap => {
+      console.log('[config sync] config/company ->', snap.exists() ? snap.data() : '(does not exist)');
+      if(!snap.exists()) return;
+      const data = snap.data();
+      if(data.name || data.address) CONFIG.company = { name: data.name || '', address: data.address || '' };
+      saveSettingsLocal();
+      scheduleUpdate();
+    }, err => console.error('[config sync] company error', err)),
+    onSnapshot(doc(db, 'config', 'scanNote'), snap => {
+      console.log('[config sync] config/scanNote ->', snap.exists() ? snap.data() : '(does not exist)');
+      if(!snap.exists()) return;
+      const data = snap.data();
+      // Accept either the fields directly on the doc, or nested under a
+      // "scanNote" key (in case it was saved the same way as /settings).
+      const note = data.scanNote || data;
+      if(note.en1 || note.ta1 || note.en2 || note.ta2){
+        CONFIG.scanNote = { en1: note.en1 || '', ta1: note.ta1 || '', en2: note.en2 || '', ta2: note.ta2 || '' };
+      }
+      saveSettingsLocal();
+      scheduleUpdate();
+    }, err => console.error('[config sync] scanNote error', err))
   ];
 }
 window.addEventListener('firebase-ready', subscribeConfigCloudSync);
@@ -1960,6 +1994,40 @@ function triggerDownload(blob, fileName){
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
+// Force-overwrite image saving. A plain <a download> can't overwrite an
+// existing file — the browser silently renames the new one (image(1).png,
+// image(2).png...), piling up duplicates for repeat saves of the same
+// order. Where the File System Access API is available (Chromium), we
+// instead get a real file handle once per order, cache it, and write
+// through it every time — createWritable() truncates and rewrites the
+// same file in place, so re-saving the same order always overwrites
+// instead of duplicating. Anywhere else (Firefox, iOS, older Chromium)
+// this silently falls back to the original instant download — no dialog,
+// no behavior change, no regression.
+const orderFileHandles = new Map(); // orderId -> FileSystemFileHandle
+async function saveImageBlob(blob, fileName, orderId){
+  if('showSaveFilePicker' in window){
+    try{
+      let handle = orderFileHandles.get(orderId);
+      if(!handle || handle.name !== fileName){
+        handle = await window.showSaveFilePicker({
+          suggestedName: fileName,
+          types: [{ description: 'PNG Image', accept: { 'image/png': ['.png'] } }]
+        });
+        orderFileHandles.set(orderId, handle);
+      }
+      const writable = await handle.createWritable(); // overwrites existing file, no prompt
+      await writable.write(blob);
+      await writable.close();
+      return;
+    }catch(err){
+      if(err && err.name === 'AbortError') return; // user cancelled the picker — don't also force-download
+      // Any other failure (older browser quirk, permission edge case) — fall through to plain download below.
+    }
+  }
+  triggerDownload(blob, fileName);
+}
+
 function validateForSend(data){
   const msgEl = $('formMsg'); msgEl.style.color = 'var(--danger)';
   if(!data.rows.length){ msgEl.textContent = 'Please add at least one item.'; focusField('desc_row_1'); return false; }
@@ -2058,12 +2126,12 @@ async function runBillAndImageFlow(btnId, buildWaUrl){
       const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
       if(!blob) throw new Error('Image creation failed.');
       const fileName = `${data.orderNo}-${sanitizeFileName(data.custName)}.png`;
-      triggerDownload(blob, fileName);
+      await saveImageBlob(blob, fileName, currentOrderId);
 
       setActionLabel(btnId, '📲', 'Open WA');
       $('formMsg').style.color = 'var(--primary)';
       $('formMsg').textContent = 'Saved: ' + fileName + ' — opening WhatsApp…';
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise(resolve => setTimeout(resolve, 400));
     } else {
       setActionLabel(btnId, '📲', 'Open WA');
       $('formMsg').style.color = 'var(--primary)';
@@ -2432,16 +2500,16 @@ async function saveOrder(){
     setActionLabel('btnSave', '⏳', 'Saving');
     if(typeof document.fonts !== 'undefined') await document.fonts.ready;
 
+    await persistOrderRecord(data); // local save is instant; cloud sync runs in the background
+    isDirty = false;
+
     const node = $('imageWrap');
     const canvas = await html2canvas(node, { scale: 2.5, backgroundColor: null, useCORS: true, allowTaint: true });
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
     if(!blob) throw new Error('Image creation failed.');
 
     const fileName = `${data.orderNo}-${sanitizeFileName(data.custName)}.png`;
-    triggerDownload(blob, fileName);
-
-    await persistOrderRecord(data); // local save is instant; cloud sync runs in the background
-    isDirty = false;
+    await saveImageBlob(blob, fileName, currentOrderId);
     setActionLabel('btnSave', '✅', 'Saved');
     btn.dataset.state = 'done'; // stays "Saved" until the form is edited again
     $('formMsg').style.color = 'var(--primary)';
