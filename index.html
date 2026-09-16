@@ -307,23 +307,23 @@
   .grid-cell{
     background:#ffffff; border:1px solid var(--primary);
     display:flex; flex-direction:column; align-items:center; justify-content:center;
-    padding:3px; text-align:center; box-sizing:border-box;
+    padding:0; text-align:center; box-sizing:border-box;
     min-width:0; min-height:0; position:relative; overflow:hidden;
   }
-  .grid-cell.instruction{ border-style:dashed; }
+  .grid-cell.instruction{ border-style:dashed; padding:2px; }
   .scan-note-grid{
-    justify-content:center; text-align:center; display:flex; flex-direction:column; gap:2px;
+    justify-content:center; text-align:center; display:flex; flex-direction:column; gap:3px;
     padding:0; background:transparent;
-    width:100%; box-sizing:border-box; margin:0;
+    width:100%; height:100%; box-sizing:border-box; margin:0;
     align-items:center;
   }
   .scan-note-grid p{
-    margin:0; line-height:1.2; overflow-wrap:break-word; word-break:break-word;
+    margin:0; line-height:1.15; overflow-wrap:break-word; word-break:break-word;
     padding:0; border-radius:0; width:100%; box-sizing:border-box;
-    font-size:clamp(10px, 2vw, 13px); font-weight:950; background:none; text-shadow:none;
+    font-size:clamp(13px, 4.2vw, 19px); font-weight:900; background:none; text-shadow:none;
   }
-  .scan-note-grid p.en{font-family:'Baloo 2',sans-serif; font-weight:950; color:var(--primary); letter-spacing:0.4px;}
-  .scan-note-grid p.ta{font-family:'Noto Sans Tamil',sans-serif; font-weight:900; color:var(--primary);}
+  .scan-note-grid p.en{font-family:'Inter',sans-serif; font-weight:800; color:var(--primary); letter-spacing:0.1px;}
+  .scan-note-grid p.ta{font-family:'Noto Sans Tamil',sans-serif; font-weight:700; color:var(--primary); font-size:clamp(12px, 3.8vw, 17px);}
 
   /* QR cell: the square wrap drives the row height (width == height), so the
      QR is always the maximum size that fits its partition. The meta label
@@ -2004,6 +2004,39 @@ function triggerDownload(blob, fileName){
 // instead of duplicating. Anywhere else (Firefox, iOS, older Chromium)
 // this silently falls back to the original instant download — no dialog,
 // no behavior change, no regression.
+// Post-process the raw html2canvas capture: adds a thin white bezel margin
+// around the whole receipt and clips the final image to rounded corners,
+// so every saved/shared PNG looks like a finished card, not a raw crop.
+function roundAndBezelCanvas(sourceCanvas){
+  const bezel = Math.max(6, Math.round(sourceCanvas.width * 0.012)); // thin, scales with resolution
+  const radius = Math.max(14, Math.round(sourceCanvas.width * 0.018));
+  const outW = sourceCanvas.width + bezel * 2;
+  const outH = sourceCanvas.height + bezel * 2;
+  const out = document.createElement('canvas');
+  out.width = outW; out.height = outH;
+  const ctx = out.getContext('2d');
+
+  // Rounded-rect clip for the entire card (bezel + content together)
+  const r = radius;
+  ctx.beginPath();
+  ctx.moveTo(r, 0);
+  ctx.arcTo(outW, 0, outW, outH, r);
+  ctx.arcTo(outW, outH, 0, outH, r);
+  ctx.arcTo(0, outH, 0, 0, r);
+  ctx.arcTo(0, 0, outW, 0, r);
+  ctx.closePath();
+  ctx.save();
+  ctx.clip();
+
+  // White bezel background, then the captured receipt centered inside it
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, outW, outH);
+  ctx.drawImage(sourceCanvas, bezel, bezel);
+
+  ctx.restore();
+  return out;
+}
+
 const orderFileHandles = new Map(); // orderId -> FileSystemFileHandle
 async function saveImageBlob(blob, fileName, orderId){
   if('showSaveFilePicker' in window){
@@ -2122,7 +2155,8 @@ async function runBillAndImageFlow(btnId, buildWaUrl){
       setActionLabel(btnId, '⏳', 'Saving image');
       if(typeof document.fonts !== 'undefined') await document.fonts.ready;
       const node = $('imageWrap');
-      const canvas = await html2canvas(node, { scale: 2.5, backgroundColor: null, useCORS: true, allowTaint: true });
+      const rawCanvas = await html2canvas(node, { scale: 2.5, backgroundColor: null, useCORS: true, allowTaint: true });
+      const canvas = roundAndBezelCanvas(rawCanvas);
       const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
       if(!blob) throw new Error('Image creation failed.');
       const fileName = `${data.orderNo}-${sanitizeFileName(data.custName)}.png`;
@@ -2504,7 +2538,8 @@ async function saveOrder(){
     isDirty = false;
 
     const node = $('imageWrap');
-    const canvas = await html2canvas(node, { scale: 2.5, backgroundColor: null, useCORS: true, allowTaint: true });
+    const rawCanvas = await html2canvas(node, { scale: 2.5, backgroundColor: null, useCORS: true, allowTaint: true });
+    const canvas = roundAndBezelCanvas(rawCanvas);
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
     if(!blob) throw new Error('Image creation failed.');
 
