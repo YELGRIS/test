@@ -186,8 +186,11 @@
   .oh-lbl{font-size:9px; text-transform:uppercase; letter-spacing:0.5px; font-weight:700; opacity:0.85;}
   .oh-val{font-size:13px; font-weight:900; font-family:'Roboto Mono',monospace; letter-spacing:0.3px;}
   .oh-company{flex:1 1 auto; text-align:center; width:100%; min-width:0; padding:0;}
-  .oh-name{font-family:'Baloo 2',sans-serif; font-size:24px; font-weight:800; letter-spacing:0.3px; line-height:1.1; text-shadow:1px 1px 0 rgba(0,0,0,0.22); word-wrap:break-word; overflow-wrap:break-word;}
-  .oh-addr{font-size:12px; opacity:0.95; font-weight:600;}
+  /* Company name/address always stay on one line — actual font size is set
+     per-render by fitTextToWidth() in JS, using the largest size (up to
+     these maximums) that fits the available width without wrapping. */
+  .oh-name{font-family:'Baloo 2',sans-serif; font-size:24px; font-weight:800; letter-spacing:0.3px; line-height:1.1; text-shadow:1px 1px 0 rgba(0,0,0,0.22); white-space:nowrap; overflow:hidden;}
+  .oh-addr{font-size:12px; opacity:0.95; font-weight:600; white-space:nowrap; overflow:hidden;}
 
   .order-to{display:flex; justify-content:space-between; align-items:center; padding:4px 0; font-size:13px; box-sizing:border-box; background: var(--primary-light); margin: 0; border-radius: 0;}
   .order-to .lbl{font-size:10px; text-transform:uppercase; letter-spacing:0.5px; color:var(--primary); font-weight:800; display:inline-block; margin-right: 4px;}
@@ -307,23 +310,31 @@
   .grid-cell{
     background:#ffffff; border:1px solid var(--primary);
     display:flex; flex-direction:column; align-items:center; justify-content:center;
-    padding:0; text-align:center; box-sizing:border-box;
+    padding:3px; text-align:center; box-sizing:border-box;
     min-width:0; min-height:0; position:relative; overflow:hidden;
   }
-  .grid-cell.instruction{ border-style:dashed; padding:2px; }
+  /* Instructions cell: no padding/margin/gaps — the text is trimmed to fit
+     the cell exactly (see fitTextToWidth in JS), so reclaiming every pixel
+     of the partition for the text itself keeps it as large as possible. */
+  .grid-cell.instruction{ border-style:dashed; padding:0; }
   .scan-note-grid{
-    justify-content:center; text-align:center; display:flex; flex-direction:column; gap:3px;
+    justify-content:center; text-align:center; display:flex; flex-direction:column; gap:0;
     padding:0; background:transparent;
     width:100%; height:100%; box-sizing:border-box; margin:0;
     align-items:center;
   }
   .scan-note-grid p{
-    margin:0; line-height:1.15; overflow-wrap:break-word; word-break:break-word;
+    margin:0; line-height:1.15;
     padding:0; border-radius:0; width:100%; box-sizing:border-box;
-    font-size:clamp(13px, 4.2vw, 19px); font-weight:900; background:none; text-shadow:none;
+    font-weight:900; background:none; text-shadow:none;
+    white-space:nowrap; overflow:hidden;
   }
-  .scan-note-grid p.en{font-family:'Inter',sans-serif; font-weight:800; color:var(--primary); letter-spacing:0.1px;}
-  .scan-note-grid p.ta{font-family:'Noto Sans Tamil',sans-serif; font-weight:700; color:var(--primary); font-size:clamp(12px, 3.8vw, 17px);}
+  /* Plain, professional 'Inter' for the English lines (was the decorative
+     display font, which was hard to read at small sizes); Tamil line keeps
+     its dedicated script font. Starting font size is a JS-set maximum —
+     fitTextToWidth shrinks each line only as much as needed to fit. */
+  .scan-note-grid p.en{font-family:'Inter',sans-serif; font-weight:900; color:var(--primary); letter-spacing:0.1px;}
+  .scan-note-grid p.ta{font-family:'Noto Sans Tamil',sans-serif; font-weight:800; color:var(--primary);}
 
   /* QR cell: the square wrap drives the row height (width == height), so the
      QR is always the maximum size that fits its partition. The meta label
@@ -349,16 +360,51 @@
     letter-spacing:0.2px; word-break:break-all; overflow-wrap:break-word;
   }
 
-  .buttons-watermark{width:100%; text-align:center; font-size:22px; opacity:0.55; margin-top:0; color:#fff;}
-  .action-buttons{width:100%; display:flex; gap:0; margin-top:0;}
-  .action-buttons button{flex:1; border:none; border-radius:var(--radius); padding:8px 2px; font-size:13px; font-weight:900; font-family:'Inter',sans-serif; cursor:pointer; color:#fff; display:flex; flex-direction:column; align-items:center; gap:2px; box-shadow:none;}
-  .action-buttons button .ic{font-size:18px;}
+  .buttons-watermark{width:100%; text-align:center; font-size:16px; opacity:0.55; margin-top:0; color:#fff; line-height:1;}
+  .action-buttons{width:100%; display:flex; gap:2px; margin-top:0;}
+  /* Half-height buttons: icon centered as the base layer, label overlaid
+     directly on top of it (same spot, layered via absolute positioning)
+     instead of stacked in two rows. */
+  .action-buttons button{
+    position:relative; flex:1; border:none; border-radius:var(--radius);
+    padding:0; font-family:'Inter',sans-serif; cursor:pointer; color:#fff;
+    box-shadow:none; height:26px; overflow:hidden; display:block;
+  }
+  .action-buttons button .ic{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    font-size:15px; opacity:0.85; line-height:1;
+  }
+  .action-buttons button .lbl{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:9px; font-weight:900; letter-spacing:0.2px; line-height:1;
+    text-shadow:0 1px 2px rgba(0,0,0,0.65), 0 0 5px rgba(0,0,0,0.45);
+    padding:0 2px; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
   #btnPay{background:linear-gradient(135deg,#25D366,#128C7E);}
   #btnImage{background:linear-gradient(135deg,var(--secondary),var(--primary));}
   #btnSave{background:linear-gradient(135deg,var(--accent),#F76B1C);}
   #btnReset{background:linear-gradient(135deg,#7d7d7d,#4a4a4a);}
   .action-buttons button:disabled{opacity:0.55; cursor:not-allowed;}
-  #formMsg{width:100%; font-size:13px; text-align:center; min-height:16px; color:var(--primary); margin-top:0; font-weight:700;}
+
+  /* Activity log — fixed to the bottom edge of the viewport, collapsed to
+     roughly 2 lines by default, expanding to a tall readable panel on
+     focus and shrinking back on blur. Every status/progress message the
+     app produces is appended here (not just the latest one). */
+  #formMsg{
+    position:fixed; left:0; right:0; bottom:0; z-index:80;
+    background:rgba(255,255,255,0.98); border-top:1.5px solid var(--primary);
+    font-family:'Roboto Mono',monospace; font-size:10.5px; line-height:1.35; color:var(--ink);
+    text-align:left; box-sizing:border-box; padding:2px 6px;
+    padding-bottom:calc(2px + env(safe-area-inset-bottom));
+    height:calc(2 * 1.35em + 4px);
+    overflow-y:auto; -webkit-overflow-scrolling:touch;
+    transition:height 0.18s ease; outline:none;
+  }
+  #formMsg:focus{ height:42vh; }
+  #formMsg .log-line{white-space:pre-wrap; word-break:break-word; padding:1px 0; border-bottom:1px dashed #eef3f3;}
+  #formMsg .log-line:last-child{border-bottom:none;}
+  #formMsg .log-err{color:var(--danger); font-weight:800;}
+  body{padding-bottom:calc(2 * 1.35 * 10.5px + 16px + env(safe-area-inset-bottom));}
 
   .modal-overlay{position:fixed; inset:0; background:rgba(0,0,0,0.55); display:flex; align-items:center; justify-content:center; z-index:100; padding:0;}
   .modal-box{background:#fff; border-radius:var(--radius); padding:0; max-height:85vh; overflow-y:auto; width:100%; font-weight:700; box-shadow:none; display:flex; flex-direction:column;}
@@ -479,16 +525,17 @@
   <div id="paymentQrPreview" class="payment-qr-preview"></div>
 </div>
 
-<div class="image-wrap" id="imageWrap" style="display:none;"><div id="orderImage"></div></div>
-
 <div class="buttons-watermark">💧</div>
 <div class="action-buttons">
-  <button id="btnReset" tabindex="500" onclick="resetOrder()"><span class="ic">🔄</span>New Bill</button>
-  <button id="btnPay" tabindex="501" onclick="sendPayment()"><span class="ic">💰</span>WA Pay</button>
-  <button id="btnSave" tabindex="502" onclick="saveOrder()"><span class="ic">💾</span>Save Bill</button>
-  <button id="btnImage" tabindex="503" onclick="saveAndSendImage()"><span class="ic">🖼️</span>WA Image</button>
+  <button id="btnReset" tabindex="500" onclick="resetOrder()"><span class="ic">🔄</span><span class="lbl">New Bill</span></button>
+  <button id="btnPay" tabindex="501" onclick="sendPayment()"><span class="ic">💰</span><span class="lbl">WA Pay</span></button>
+  <button id="btnSave" tabindex="502" onclick="saveOrder()"><span class="ic">💾</span><span class="lbl">Save Bill</span></button>
+  <button id="btnImage" tabindex="503" onclick="saveAndSendImage()"><span class="ic">🖼️</span><span class="lbl">WA Image</span></button>
 </div>
-<div id="formMsg"></div>
+
+<div class="image-wrap" id="imageWrap" style="display:none;"><div id="orderImage"></div></div>
+
+<div id="formMsg" tabindex="600" aria-label="Activity log"></div>
 
 <!-- Modals -->
 <div id="qtyModal" class="modal-overlay" style="display:none;">
@@ -659,6 +706,83 @@
 
 <script>
 const $ = id => document.getElementById(id);
+
+// ---- Activity log (fixed bottom panel) ----
+// Every status/progress message the app produces is appended as its own
+// line (with a timestamp) instead of replacing the previous one, so the
+// panel builds up a running log. Collapsed height is ~2 lines (see CSS);
+// focusing the panel (tap/click into it) expands it for easy reading,
+// blurring it shrinks it back. New lines auto-scroll into view unless the
+// user currently has the panel focused/expanded and is reading back through it.
+const LOG_MAX_LINES = 300;
+function logMsg(text, isError){
+  const panel = $('formMsg');
+  if(!panel) return;
+  const time = new Date().toLocaleTimeString('en-IN', { hour12:false });
+  const line = document.createElement('div');
+  line.className = 'log-line' + (isError ? ' log-err' : '');
+  line.textContent = `[${time}] ${text}`;
+  panel.appendChild(line);
+  while(panel.children.length > LOG_MAX_LINES) panel.removeChild(panel.firstChild);
+  if(document.activeElement !== panel) panel.scrollTop = panel.scrollHeight;
+}
+
+// ---- Shrink-to-fit text (company name/address, QR scan instructions) ----
+// Starts at maxPx and steps the font size down only as far as needed for
+// the element's own content to fit the width available to it on one line
+// (no wrap) — i.e. the maximum size that still fits, not a fixed guess.
+function fitTextToWidth(el, maxPx, minPx){
+  if(!el) return;
+  let size = maxPx;
+  el.style.fontSize = size + 'px';
+  let guard = 0;
+  while(el.scrollWidth > el.clientWidth + 0.5 && size > minPx && guard < 60){
+    size -= 1;
+    el.style.fontSize = size + 'px';
+    guard++;
+  }
+}
+
+// ---- Rounded corners + thin white bezel for the exported PNG ----
+// Composites the raw html2canvas capture onto a new canvas: a solid-white
+// rounded-rect base (the bezel) with the captured content drawn inset and
+// clipped to a matching, slightly smaller rounded rect on top. bezelPx and
+// radiusPx are in *output* pixels (i.e. already at html2canvas's capture
+// scale), so they stay visually "very thin" regardless of export scale.
+function roundedRectPath(ctx, x, y, w, h, r){
+  const rr = Math.max(0, Math.min(r, w / 2, h / 2));
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rr);
+  ctx.arcTo(x + w, y + h, x, y + h, rr);
+  ctx.arcTo(x, y + h, x, y, rr);
+  ctx.arcTo(x, y, x + w, y, rr);
+  ctx.closePath();
+}
+function applyRoundedBezel(sourceCanvas, bezelPx, radiusPx){
+  const w = sourceCanvas.width, h = sourceCanvas.height;
+  const outW = w + bezelPx * 2, outH = h + bezelPx * 2;
+  const out = document.createElement('canvas');
+  out.width = outW; out.height = outH;
+  const ctx = out.getContext('2d');
+  roundedRectPath(ctx, 0, 0, outW, outH, radiusPx);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+  ctx.save();
+  roundedRectPath(ctx, bezelPx, bezelPx, w, h, Math.max(0, radiusPx - bezelPx));
+  ctx.clip();
+  ctx.drawImage(sourceCanvas, bezelPx, bezelPx);
+  ctx.restore();
+  return out;
+}
+// Capture #imageWrap and return a PNG blob with the rounded-corner/white-bezel
+// treatment already baked in. scale must match whatever html2canvas is
+// asked to render at, so the bezel/radius stay visually consistent.
+async function captureBillImageBlob(node, scale){
+  const raw = await html2canvas(node, { scale, backgroundColor:null, useCORS:true, allowTaint:true });
+  const finished = applyRoundedBezel(raw, Math.round(4 * scale), Math.round(14 * scale));
+  return await new Promise(resolve => finished.toBlob(resolve, 'image/png'));
+}
 
 const CONFIG = {
   // company, receivers, items and scanNote have no hardcoded defaults —
@@ -1396,11 +1520,7 @@ function loadItemsAndReceivers(){
 
 function warnIfConfigEmpty(){
   if(!CONFIG.items.length && !CONFIG.receivers.length && !CONFIG.company.name){
-    const el = $('formMsg');
-    if(el){
-      el.style.color = 'var(--danger)';
-      el.textContent = 'No items / payment methods / company details found locally yet — waiting for cloud sync (or add them via Manage Items / Manage Payment Methods).';
-    }
+    logMsg('No items / payment methods / company details found locally yet — waiting for cloud sync (or add them via Manage Items / Manage Payment Methods).', true);
   }
 }
 
@@ -1618,7 +1738,6 @@ function numberToWords(num){
 }
 
 async function pickContact(){
-  const msgEl = $('formMsg');
   if('contacts' in navigator && 'ContactsManager' in window){
     try{
       const contacts = await navigator.contacts.select(['name','tel'], {multiple:false});
@@ -1627,8 +1746,8 @@ async function pickContact(){
         $('custPhone').value = ((contacts[0].tel && contacts[0].tel[0]) || '').slice(0, 13);
         onPhoneInput(); scheduleUpdate();
       }
-    }catch(e){ msgEl.style.color = 'var(--danger)'; msgEl.textContent = 'Could not read contacts: ' + e.message; }
-  } else { msgEl.style.color = 'var(--danger)'; msgEl.textContent = 'Contact picker not supported on this browser.'; }
+    }catch(e){ logMsg('Could not read contacts: ' + e.message, true); }
+  } else { logMsg('Contact picker not supported on this browser.', true); }
 }
 
 function normalizePhone(raw){
@@ -1901,6 +2020,13 @@ async function renderOrderImage(){
   const container = $('orderImage');
   container.innerHTML = orderImageTemplate(data, nonCash);
 
+  // Shrink company name/address and the QR scan-instruction lines to the
+  // largest size that fits their space on one line, without wrapping.
+  fitTextToWidth(container.querySelector('.oh-name'), 24, 9);
+  fitTextToWidth(container.querySelector('.oh-addr'), 12, 7);
+  container.querySelectorAll('.scan-note-grid p.en').forEach(el => fitTextToWidth(el, 15, 7));
+  container.querySelectorAll('.scan-note-grid p.ta').forEach(el => fitTextToWidth(el, 14, 7));
+
   if(nonCash.length > 0){
     let minAvailable = 150;
     nonCash.forEach((_, i) => {
@@ -2004,39 +2130,6 @@ function triggerDownload(blob, fileName){
 // instead of duplicating. Anywhere else (Firefox, iOS, older Chromium)
 // this silently falls back to the original instant download — no dialog,
 // no behavior change, no regression.
-// Post-process the raw html2canvas capture: adds a thin white bezel margin
-// around the whole receipt and clips the final image to rounded corners,
-// so every saved/shared PNG looks like a finished card, not a raw crop.
-function roundAndBezelCanvas(sourceCanvas){
-  const bezel = Math.max(6, Math.round(sourceCanvas.width * 0.012)); // thin, scales with resolution
-  const radius = Math.max(14, Math.round(sourceCanvas.width * 0.018));
-  const outW = sourceCanvas.width + bezel * 2;
-  const outH = sourceCanvas.height + bezel * 2;
-  const out = document.createElement('canvas');
-  out.width = outW; out.height = outH;
-  const ctx = out.getContext('2d');
-
-  // Rounded-rect clip for the entire card (bezel + content together)
-  const r = radius;
-  ctx.beginPath();
-  ctx.moveTo(r, 0);
-  ctx.arcTo(outW, 0, outW, outH, r);
-  ctx.arcTo(outW, outH, 0, outH, r);
-  ctx.arcTo(0, outH, 0, 0, r);
-  ctx.arcTo(0, 0, outW, 0, r);
-  ctx.closePath();
-  ctx.save();
-  ctx.clip();
-
-  // White bezel background, then the captured receipt centered inside it
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, outW, outH);
-  ctx.drawImage(sourceCanvas, bezel, bezel);
-
-  ctx.restore();
-  return out;
-}
-
 const orderFileHandles = new Map(); // orderId -> FileSystemFileHandle
 async function saveImageBlob(blob, fileName, orderId){
   if('showSaveFilePicker' in window){
@@ -2062,30 +2155,27 @@ async function saveImageBlob(blob, fileName, orderId){
 }
 
 function validateForSend(data){
-  const msgEl = $('formMsg'); msgEl.style.color = 'var(--danger)';
-  if(!data.rows.length){ msgEl.textContent = 'Please add at least one item.'; focusField('desc_row_1'); return false; }
-  if(data.orderAmountVal < 1){ msgEl.textContent = 'Order amount must be at least ₹1.'; focusField('desc_row_1'); return false; }
+  if(!data.rows.length){ logMsg('Please add at least one item.', true); focusField('desc_row_1'); return false; }
+  if(data.orderAmountVal < 1){ logMsg('Order amount must be at least ₹1.', true); focusField('desc_row_1'); return false; }
   if(data.paymentAllocations.some(a => a.receiver === null)){
-    msgEl.textContent = 'Select payment methods for all lines.';
+    logMsg('Select payment methods for all lines.', true);
     const idx = paymentRows.findIndex(r => r.receiverIdx === null);
     focusField(idx >= 0 ? `payMethodBtn_${idx}` : 'paymentRowsContainer');
     return false;
   }
   const diff = data.orderAmountVal - Math.round(data.totalAllocated);
   if(diff !== 0){
-    msgEl.textContent = `Payment allocation mismatch (${inr(diff)}).`;
+    logMsg(`Payment allocation mismatch (${inr(diff)}).`, true);
     focusField(`payAmountInput_${Math.max(paymentRows.length - 1, 0)}`);
     return false;
   }
-  msgEl.textContent = '';
   return true;
 }
 
 function requirePhone(data){
   const phone = normalizePhone(data.custPhone);
   if(!phone){
-    $('formMsg').style.color = 'var(--danger)';
-    $('formMsg').textContent = 'Please enter a valid mobile number.';
+    logMsg('Please enter a valid mobile number.', true);
     focusField('custPhone');
     return null;
   }
@@ -2106,7 +2196,7 @@ const ACTION_DEFAULTS = {
 };
 function setActionLabel(btnId, icon, text){
   const btn = $(btnId);
-  if(btn) btn.innerHTML = `<span class="ic">${icon}</span>${text}`;
+  if(btn) btn.innerHTML = `<span class="ic">${icon}</span><span class="lbl">${text}</span>`;
 }
 function resetActionLabel(btnId){
   const d = ACTION_DEFAULTS[btnId];
@@ -2155,21 +2245,17 @@ async function runBillAndImageFlow(btnId, buildWaUrl){
       setActionLabel(btnId, '⏳', 'Saving image');
       if(typeof document.fonts !== 'undefined') await document.fonts.ready;
       const node = $('imageWrap');
-      const rawCanvas = await html2canvas(node, { scale: 2.5, backgroundColor: null, useCORS: true, allowTaint: true });
-      const canvas = roundAndBezelCanvas(rawCanvas);
-      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      const blob = await captureBillImageBlob(node, 2.5);
       if(!blob) throw new Error('Image creation failed.');
       const fileName = `${data.orderNo}-${sanitizeFileName(data.custName)}.png`;
       await saveImageBlob(blob, fileName, currentOrderId);
 
       setActionLabel(btnId, '📲', 'Open WA');
-      $('formMsg').style.color = 'var(--primary)';
-      $('formMsg').textContent = 'Saved: ' + fileName + ' — opening WhatsApp…';
+      logMsg('Saved: ' + fileName + ' — opening WhatsApp…');
       await new Promise(resolve => setTimeout(resolve, 400));
     } else {
       setActionLabel(btnId, '📲', 'Open WA');
-      $('formMsg').style.color = 'var(--primary)';
-      $('formMsg').textContent = 'Already saved — opening WhatsApp…';
+      logMsg('Already saved — opening WhatsApp…');
     }
 
     const url = buildWaUrl(data, phone);
@@ -2177,8 +2263,7 @@ async function runBillAndImageFlow(btnId, buildWaUrl){
     else window.open(url, '_blank'); // fallback if the reserved tab got closed somehow
   }catch(e){
     if(waWindow && !waWindow.closed) waWindow.close();
-    $('formMsg').style.color = 'var(--danger)';
-    $('formMsg').textContent = 'Error: ' + e.message;
+    logMsg('Error: ' + e.message, true);
   }
   btn.disabled = false; btn.dataset.state = 'idle';
   resetActionLabel(btnId);
@@ -2415,8 +2500,7 @@ async function openOrderHistoryModal(){
 // '<' moves to an older bill, '>' moves to a newer one; both wrap around.
 function cycleOrder(step){
   if(!ordersCache.length){
-    $('formMsg').style.color = 'var(--primary)';
-    $('formMsg').textContent = 'No saved bills to cycle through yet.';
+    logMsg('No saved bills to cycle through yet.');
     return;
   }
   const curIdx = ordersCache.findIndex(o => o.id === currentOrderId);
@@ -2520,8 +2604,7 @@ function loadOrderFromCloud(id){
   isDirty = false; // this content is exactly what's already saved for this order
   $('btnSave').dataset.state = 'done';
   setActionLabel('btnSave', '✅', 'Saved');
-  $('formMsg').style.color = 'var(--primary)';
-  $('formMsg').textContent = 'Loaded order ' + (o.orderNo || '');
+  logMsg('Loaded order ' + (o.orderNo || ''));
 }
 // ================== end cloud sync ==================
 
@@ -2538,22 +2621,18 @@ async function saveOrder(){
     isDirty = false;
 
     const node = $('imageWrap');
-    const rawCanvas = await html2canvas(node, { scale: 2.5, backgroundColor: null, useCORS: true, allowTaint: true });
-    const canvas = roundAndBezelCanvas(rawCanvas);
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    const blob = await captureBillImageBlob(node, 2.5);
     if(!blob) throw new Error('Image creation failed.');
 
     const fileName = `${data.orderNo}-${sanitizeFileName(data.custName)}.png`;
     await saveImageBlob(blob, fileName, currentOrderId);
     setActionLabel('btnSave', '✅', 'Saved');
     btn.dataset.state = 'done'; // stays "Saved" until the form is edited again
-    $('formMsg').style.color = 'var(--primary)';
-    $('formMsg').textContent = 'Saved: ' + fileName + ' — syncing to cloud in the background.';
+    logMsg('Saved: ' + fileName + ' — syncing to cloud in the background.');
     btn.disabled = false;
     return;
   }catch(e){
-    $('formMsg').style.color = 'var(--danger)';
-    $('formMsg').textContent = 'Error: ' + e.message;
+    logMsg('Error: ' + e.message, true);
   }
   btn.disabled = false; btn.dataset.state = 'idle';
   resetActionLabel('btnSave');
@@ -2577,13 +2656,26 @@ function resetOrder(){
   $('discountVal').value = 0; $('discountLabel').value = ''; $('discountLabel').placeholder = 'Discount';
   $('discountOp').dataset.op = '-'; $('discountOp').textContent = '−';
   buildRows();
-  $('formMsg').style.color = 'var(--primary)';
-  $('formMsg').textContent = 'New order started.';
+  logMsg('New order started.');
   scheduleUpdate();
   setTimeout(() => { const first = document.querySelector('#itemsBody tr'); if(first) openItemModal(first); }, 150);
 }
 
 function toggleModal(id, show){ $(id).style.display = show ? 'flex' : 'none'; }
+
+// Defensive reload safeguard: if the page (re)loads and the item rows come
+// up with nothing entered in them, always land on a guaranteed-clean new
+// bill rather than any stale/partial state.
+function ensureFreshBillIfEmpty(){
+  const tbody = $('itemsBody');
+  const anyFilled = tbody && Array.from(tbody.querySelectorAll('input.desc')).some(inp => inp.value.trim() !== '');
+  if(!anyFilled){
+    currentOrderId = null;
+    orderNoManual = false;
+    $('orderNo').value = deriveOrderNo($('orderDate').value);
+    logMsg('Reload detected empty items — starting a new bill.');
+  }
+}
 
 loadItemsAndReceivers();
 randomizeAppreciation(); 
@@ -2592,6 +2684,7 @@ setDefaultDate();
 $('orderNo').value = deriveOrderNo($('orderDate').value);
 renderPaymentRows();
 buildRows();
+ensureFreshBillIfEmpty();
 renderOrderImage();
 setInterval(refreshOrderNo, 60000);
 
