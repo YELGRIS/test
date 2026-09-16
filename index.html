@@ -5,15 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SREE FOUNDATION — Ordering</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Inter:wght@500;700;800;900&family=Noto+Sans+Tamil:wght@600&family=Roboto+Mono:wght@700&family=Great+Vibes&display=swap" rel="stylesheet" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Inter:wght@500;700;800;900&family=Noto+Sans+Tamil:wght@600;700;800&family=Roboto+Mono:wght@700&family=Great+Vibes&display=swap" rel="stylesheet" crossorigin="anonymous">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script type="module">
   // ── Firebase (Firestore) — cloud sync for saved orders & customers ──
-  // No sign-in is used, so Firestore Security Rules must allow open
-  // read/write on the "orders" and "customers" collections, e.g.:
-  //   match /orders/{id}    { allow read, write: if true; }
-  //   match /customers/{id} { allow read, write: if true; }
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
   import {
     getFirestore, collection, doc, setDoc, deleteDoc, getDocs, getDoc, onSnapshot,
@@ -31,8 +27,6 @@
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
-  // Local cache so save/load/search keep working offline; queued writes
-  // flush automatically once the connection returns.
   enableIndexedDbPersistence(db).catch(() => {});
 
   window.FB = { db, collection, doc, setDoc, deleteDoc, getDocs, getDoc, onSnapshot, query, orderBy, limit };
@@ -114,7 +108,6 @@
   table.items tbody tr:nth-child(6n+5) td{background:var(--row-5);}
   table.items tbody tr:nth-child(6n+0) td{background:var(--row-6);}
   
-  /* Widths proportional to field character widths: Sr.No 1, Description 25, Qty 5, Free 3, Rate 6, Amount 7 (47 total) — Qty/Free/Rate then widened 20% further, taken from Description */
   table.items th:nth-child(1), table.items td:nth-child(1){width:2.13%;}
   table.items th:nth-child(2), table.items td:nth-child(2){width:47.23%;}
   table.items th:nth-child(3), table.items td:nth-child(3){width:12.77%;}
@@ -186,9 +179,6 @@
   .oh-lbl{font-size:9px; text-transform:uppercase; letter-spacing:0.5px; font-weight:700; opacity:0.85;}
   .oh-val{font-size:13px; font-weight:900; font-family:'Roboto Mono',monospace; letter-spacing:0.3px;}
   .oh-company{flex:1 1 auto; text-align:center; width:100%; min-width:0; padding:0;}
-  /* Company name/address always stay on one line — actual font size is set
-     per-render by fitTextToWidth() in JS, using the largest size (up to
-     these maximums) that fits the available width without wrapping. */
   .oh-name{font-family:'Baloo 2',sans-serif; font-size:24px; font-weight:800; letter-spacing:0.3px; line-height:1.1; text-shadow:1px 1px 0 rgba(0,0,0,0.22); white-space:nowrap; overflow:hidden;}
   .oh-addr{font-size:12px; opacity:0.95; font-weight:600; white-space:nowrap; overflow:hidden;}
 
@@ -207,13 +197,8 @@
 
   .ift{margin:0; font-size:14px; box-sizing:border-box;}
   .ift .row{display:flex; justify-content:space-between; padding:2px 0; border-bottom:1px dashed #d8e6e6; font-weight:700;}
-  /* Subtotal row (table footer) gets rounded end-caps */
   .subtotal-row td:first-child{border-radius:var(--radius) 0 0 var(--radius);}
   .subtotal-row td:last-child{border-radius:0 var(--radius) var(--radius) 0;}
-  /* Grand total row: the amount chip stretches to the row's full height and
-     shares its border, so the chip's top/bottom edges coincide exactly with
-     the row's own edges (matching the rounded subtotal row above it) —
-     no floating gap, no doubled border. */
   .ift .row.grand{
     border-bottom:none; border-top:none; margin-top:0; padding:0; font-weight:900;
     display:flex; align-items:stretch; justify-content:space-between;
@@ -244,10 +229,6 @@
   .qty-total{font-size:13px; font-weight:700; color:#5a6b6d;}
   .ift .words{background:var(--primary-light); border-radius:var(--radius); padding:6px 8px; font-size:12px; margin:0; line-height:1.3; display: none;}
 
-  /* Payment methods block (final bill) — rounded container, one coloured
-     row per payment method: row number + name + 2-space gap + UPI id.
-     No URL is ever displayed — the UPI deep-link is only used internally
-     for the QR code and the WhatsApp payment message. */
   .pay-breakdown{background:transparent; border-radius:var(--radius); padding:0; margin-top:0; line-height:1.3; box-sizing:border-box;}
   .pay-breakdown b{display:block; font-size:11px; text-transform:uppercase; color:var(--primary); margin-bottom:4px; font-weight:900; letter-spacing:0.4px;}
   .pb-row{display:flex; align-items:center; gap:6px; padding:5px 8px; font-weight:800; border-radius:var(--radius); margin-bottom:4px; box-sizing:border-box;}
@@ -270,38 +251,27 @@
   }
   .ty .ty-emojis { font-size: 14px; white-space: nowrap; flex-shrink: 0; }
 
-  /* ===== QR PARTITION GRID =====
-     Layout is derived entirely from QR count. Partitions are created first
-     (via grid-template-areas), then QR codes are generated into their
-     already-sized partition. gap:0 everywhere — no gutters between partitions.
-     Row height is driven by the square QR wrapper (aspect-ratio:1/1), so the
-     grid always stays fully occupied with no dead space. */
+  /* ===== QR PARTITION GRID ===== */
   .grid-container{
     display:grid; gap:0; padding:0;
     background:transparent; width:100%; max-width:100%; box-sizing:border-box;
     margin:0;
   }
-  /* 1 QR code: side by side — left = instructions, right = the QR */
   .grid-container.qr-count-1{
     grid-template-columns: repeat(2, minmax(0,1fr));
     grid-template-rows: auto;
     grid-template-areas: "instr qr1";
   }
-  /* 2 QR codes: left = instructions (spans full height), right column
-     splits into 2 equal stacked QR partitions */
   .grid-container.qr-count-2{
     grid-template-columns: repeat(2, minmax(0,1fr));
     grid-template-rows: auto auto;
     grid-template-areas: "instr qr1" "instr qr2";
   }
-  /* 3 QR codes: 2x2 grid — instructions occupy only the first cell */
   .grid-container.qr-count-3{
     grid-template-columns: repeat(2, minmax(0,1fr));
     grid-template-rows: auto auto;
     grid-template-areas: "instr qr1" "qr2 qr3";
   }
-  /* extensibility fallback for >3 (not part of the 0/1/2/3 spec, but keeps
-     things from breaking if a 4th UPI receiver is ever added) */
   .grid-container.qr-count-4plus{
     grid-template-columns: repeat(2, minmax(0,1fr));
     grid-template-rows: auto auto auto;
@@ -313,36 +283,49 @@
     padding:3px; text-align:center; box-sizing:border-box;
     min-width:0; min-height:0; position:relative; overflow:hidden;
   }
-  /* Instructions cell: no padding/margin/gaps — the text is trimmed to fit
-     the cell exactly (see fitTextToWidth in JS), so reclaiming every pixel
-     of the partition for the text itself keeps it as large as possible. */
-  .grid-cell.instruction{ border-style:dashed; padding:0; }
+  /* Instructions cell: styled to cleanly fit and fill its space */
+  .grid-cell.instruction{
+    border-style:dashed;
+    padding:6px 4px;
+    background:var(--primary-light);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    box-sizing:border-box;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+  }
   .scan-note-grid{
-    justify-content:center; text-align:center; display:flex; flex-direction:column; gap:0;
+    justify-content:space-evenly; text-align:center; display:flex; flex-direction:column; gap:2px;
     padding:0; background:transparent;
     width:100%; height:100%; box-sizing:border-box; margin:0;
     align-items:center;
   }
   .scan-note-grid p{
-    margin:0; line-height:1.15;
+    margin:0; line-height:1.2;
     padding:0; border-radius:0; width:100%; box-sizing:border-box;
-    font-weight:900; background:none; text-shadow:none;
-    white-space:nowrap; overflow:hidden;
+    font-weight:800; background:none; text-shadow:none;
+    text-align:center;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
-  /* Plain, professional 'Inter' for the English lines (was the decorative
-     display font, which was hard to read at small sizes); Tamil line keeps
-     its dedicated script font. Starting font size is a JS-set maximum —
-     fitTextToWidth shrinks each line only as much as needed to fit. */
-  .scan-note-grid p.en{font-family:'Inter',sans-serif; font-weight:900; color:var(--primary); letter-spacing:0.1px;}
-  .scan-note-grid p.ta{font-family:'Noto Sans Tamil',sans-serif; font-weight:800; color:var(--primary);}
+  .scan-note-grid p.en{
+    font-family:'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-weight:800;
+    font-size:12px;
+    color:var(--primary);
+    letter-spacing:0.3px;
+    text-transform:uppercase;
+  }
+  .scan-note-grid p.ta{
+    font-family:'Noto Sans Tamil', sans-serif;
+    font-weight:700;
+    font-size:11px;
+    color:var(--primary);
+    letter-spacing:0.1px;
+  }
 
-  /* QR cell: the square wrap drives the row height (width == height), so the
-     QR is always the maximum size that fits its partition. The meta label
-     is an absolutely-positioned overlay and consumes no grid track space. */
-  /* QR cell: flex column — the square wrap fills the full partition width
-     (and drives its own height via aspect-ratio), so the QR pattern is
-     never obstructed by anything on top of it. The caption is a separate,
-     compact single line directly beneath the QR, not an overlay. */
   .qr-grid-cell{ padding:0; border:none; justify-content:flex-start; }
   .qr-square-wrap{
     width:100%; aspect-ratio:1/1; display:flex; align-items:center; justify-content:center;
@@ -362,9 +345,6 @@
 
   .buttons-watermark{width:100%; text-align:center; font-size:16px; opacity:0.55; margin-top:0; color:#fff; line-height:1;}
   .action-buttons{width:100%; display:flex; gap:2px; margin-top:0;}
-  /* Half-height buttons: icon centered as the base layer, label overlaid
-     directly on top of it (same spot, layered via absolute positioning)
-     instead of stacked in two rows. */
   .action-buttons button{
     position:relative; flex:1; border:none; border-radius:var(--radius);
     padding:0; font-family:'Inter',sans-serif; cursor:pointer; color:#fff;
@@ -386,10 +366,6 @@
   #btnReset{background:linear-gradient(135deg,#7d7d7d,#4a4a4a);}
   .action-buttons button:disabled{opacity:0.55; cursor:not-allowed;}
 
-  /* Activity log — fixed to the bottom edge of the viewport, collapsed to
-     roughly 2 lines by default, expanding to a tall readable panel on
-     focus and shrinking back on blur. Every status/progress message the
-     app produces is appended here (not just the latest one). */
   #formMsg{
     position:fixed; left:0; right:0; bottom:0; z-index:80;
     background:rgba(255,255,255,0.98); border-top:1.5px solid var(--primary);
@@ -707,13 +683,6 @@
 <script>
 const $ = id => document.getElementById(id);
 
-// ---- Activity log (fixed bottom panel) ----
-// Every status/progress message the app produces is appended as its own
-// line (with a timestamp) instead of replacing the previous one, so the
-// panel builds up a running log. Collapsed height is ~2 lines (see CSS);
-// focusing the panel (tap/click into it) expands it for easy reading,
-// blurring it shrinks it back. New lines auto-scroll into view unless the
-// user currently has the panel focused/expanded and is reading back through it.
 const LOG_MAX_LINES = 300;
 function logMsg(text, isError){
   const panel = $('formMsg');
@@ -727,10 +696,6 @@ function logMsg(text, isError){
   if(document.activeElement !== panel) panel.scrollTop = panel.scrollHeight;
 }
 
-// ---- Shrink-to-fit text (company name/address, QR scan instructions) ----
-// Starts at maxPx and steps the font size down only as far as needed for
-// the element's own content to fit the width available to it on one line
-// (no wrap) — i.e. the maximum size that still fits, not a fixed guess.
 function fitTextToWidth(el, maxPx, minPx){
   if(!el) return;
   let size = maxPx;
@@ -743,12 +708,6 @@ function fitTextToWidth(el, maxPx, minPx){
   }
 }
 
-// ---- Rounded corners + thin white bezel for the exported PNG ----
-// Composites the raw html2canvas capture onto a new canvas: a solid-white
-// rounded-rect base (the bezel) with the captured content drawn inset and
-// clipped to a matching, slightly smaller rounded rect on top. bezelPx and
-// radiusPx are in *output* pixels (i.e. already at html2canvas's capture
-// scale), so they stay visually "very thin" regardless of export scale.
 function roundedRectPath(ctx, x, y, w, h, r){
   const rr = Math.max(0, Math.min(r, w / 2, h / 2));
   ctx.beginPath();
@@ -759,6 +718,7 @@ function roundedRectPath(ctx, x, y, w, h, r){
   ctx.arcTo(x, y, x + w, y, rr);
   ctx.closePath();
 }
+
 function applyRoundedBezel(sourceCanvas, bezelPx, radiusPx){
   const w = sourceCanvas.width, h = sourceCanvas.height;
   const outW = w + bezelPx * 2, outH = h + bezelPx * 2;
@@ -775,20 +735,15 @@ function applyRoundedBezel(sourceCanvas, bezelPx, radiusPx){
   ctx.restore();
   return out;
 }
-// Capture #imageWrap and return a PNG blob with the rounded-corner/white-bezel
-// treatment already baked in. scale must match whatever html2canvas is
-// asked to render at, so the bezel/radius stay visually consistent.
+
 async function captureBillImageBlob(node, scale){
   const raw = await html2canvas(node, { scale, backgroundColor:null, useCORS:true, allowTaint:true });
-  const finished = applyRoundedBezel(raw, Math.round(4 * scale), Math.round(14 * scale));
+  // Resized white bezel to half of its width (2 * scale instead of 4 * scale)
+  const finished = applyRoundedBezel(raw, Math.round(2 * scale), Math.round(14 * scale));
   return await new Promise(resolve => finished.toBlob(resolve, 'image/png'));
 }
 
 const CONFIG = {
-  // company, receivers, items and scanNote have no hardcoded defaults —
-  // they load from localStorage (instant) and then from the Firestore
-  // "config" collection in the background. See loadItemsAndReceivers()
-  // and subscribeConfigCloudSync() below.
   company: { name: '', address: '' },
   receivers: [],
   items: [],
@@ -857,11 +812,6 @@ function handleEnterFocus(e, nextId) {
 }
 
 let THEME = {};
-// Each theme's primary/secondary/accent are tuned to meet WCAG AA contrast
-// (>=4.5:1, or >=3:1 for accent used only behind white button text) when
-// used as text or button colour on the app's white/light backgrounds.
-// primaryLight/bgMain/rowColors stay pale since they're only ever
-// backgrounds, painted under the dark --ink text colour.
 const STORED_THEMES = [
   {
     name: 'Tropical Sunset',
@@ -927,10 +877,6 @@ function setDefaultDate(){
 }
 
 function deriveOrderNo(dateStr){
-  // 6-digit order number, auto-generated as ddhhmm (day, hour, minute).
-  // Existing saved bills keep their originally-generated number — this is
-  // only used for new orders (see loadOrderFromCloud, which restores the
-  // stored orderNo verbatim instead of re-deriving it).
   const now = new Date();
   const day = dateStr ? new Date(dateStr + 'T00:00:00').getDate() : now.getDate();
   return pad(day) + pad(now.getHours()) + pad(now.getMinutes());
@@ -1124,9 +1070,6 @@ function onPaymentAmountBlur(idx) {
   }
 }
 
-// Focus (and, where meaningful, select) the field that needs the user's
-// attention next — used both for the normal forward-navigation chain and
-// to draw attention to a missing/invalid field before an action.
 function focusField(id){
   const el = $(id);
   if(!el) return;
@@ -1135,9 +1078,6 @@ function focusField(id){
   if(typeof el.scrollIntoView === 'function') el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
-// After an item row's qty/rate is set (by modal or by typing), move on to
-// the next row's item picker, or to the discount field if this was the
-// last row on the form.
 function focusNextRowOrDiscount(sno){
   const nextDesc = $(`desc_row_${sno + 1}`);
   if(nextDesc) focusField(nextDesc.id); else focusField('discountLabel');
@@ -1222,20 +1162,12 @@ function openItemModal(target){
   toggleModal('itemModal', true);
 }
 
-// Lets the user directly type/edit a description instead of only picking
-// from the modal. Called on blur so a manual edit still triggers row
-// auto-expansion and totals recalculation just like a modal pick does.
 function handleDescCommit(el){
   const row = toRow(el);
   checkRowExpansion(row);
   scheduleUpdate();
 }
 
-// ===================== Item add/edit (shared form) =====================
-// newItemContext: 'order' = opened mid order-entry from the item picker —
-//   saving both persists the item AND applies it to the row that was tapped.
-// 'manage' = opened from Manage Items — saving just persists it, no row involved.
-// editingItemIndex: null when adding, otherwise the CONFIG.items index being edited.
 let newItemContext = 'order';
 let editingItemIndex = null;
 
@@ -1312,7 +1244,6 @@ function saveNewItem(){
   }
 }
 
-// ===================== Manage Items (browse / edit / delete) =====================
 function openManageItemsModal(){
   toggleModal('itemModal', false);
   renderManageItemsList();
@@ -1353,10 +1284,6 @@ function deleteItemAt(idx){
   renderManageItemsList();
 }
 
-// ===================== Payment method add/edit (shared form) =====================
-// newPaymentContext mirrors newItemContext: 'order' opened from the payment
-// picker mid-allocation (saving also selects it for the row in progress),
-// 'manage' opened from Manage Payment Methods (just persists it).
 let newPaymentContext = 'order';
 let editingPaymentIndex = null;
 
@@ -1422,13 +1349,6 @@ function saveNewPayment(){
   }
 }
 
-// ===================== Manage Payment Methods (browse / edit / hide) =====================
-// Receivers are referenced by array INDEX both in the live payment-split UI
-// and in saved order JSON (see selectPaymentMethod / order save+load), so
-// removing an entry would silently corrupt old saved bills that pointed at
-// the slots after it. "Hide" instead sets disabled:true — it drops out of
-// the picker for new orders but the object (and its index) stays put, so
-// historic bills still resolve correctly.
 function openManagePaymentModal(){
   toggleModal('paymentMethodModal', false);
   renderManagePaymentList();
@@ -1466,25 +1386,6 @@ function togglePaymentDisabled(idx){
   renderManagePaymentList();
 }
 
-// ===================== Items & receivers persistence =====================
-// This app has no server for its item/payment config, so both full lists
-// (built-in defaults plus anything added/edited/hidden) are mirrored to
-// localStorage as the source of truth from the second load onward.
-// ============== predefined-values config: local-cache-first + cloud sync ==============
-// Items, payment methods, company name/address and the QR scan instructions
-// have no hardcoded defaults in this file (see CONFIG above) — they are
-// read from a localStorage cache for an instant first paint, then kept in
-// sync in the background with Firestore's "config" collection:
-//   config/items     { list: [{name,rate,moq,freePerMoq}, ...] }
-//   config/receivers { list: [{name,upi}, ...] }
-//   config/settings  { company:{name,address}, scanNote:{en1,ta1,en2,ta2} }
-// A realtime listener keeps every device's cache/CONFIG in sync with cloud
-// edits; local edits made here (Manage Items / Manage Payment Methods) are
-// pushed back to the cloud doc in the background so nothing has to be
-// entered twice. If neither the local cache nor the cloud has data yet
-// (e.g. a brand-new device with no connection), CONFIG.items/receivers/
-// company simply stay empty and a warning is shown instead of silently
-// falling back to sample data.
 const LS_ITEMS_KEY = 'sf_items_v1';
 const LS_RECEIVERS_KEY = 'sf_receivers_v1';
 const LS_SETTINGS_KEY = 'sf_settings_v1';
@@ -1496,7 +1397,7 @@ function loadItemsAndReceivers(){
       const parsed = JSON.parse(savedItems);
       if(Array.isArray(parsed)) CONFIG.items = parsed;
     }
-  }catch(e){ /* storage unavailable — will still pick up cloud data once online */ }
+  }catch(e){}
 
   try{
     const savedReceivers = localStorage.getItem(LS_RECEIVERS_KEY);
@@ -1504,7 +1405,7 @@ function loadItemsAndReceivers(){
       const parsed = JSON.parse(savedReceivers);
       if(Array.isArray(parsed)) CONFIG.receivers = parsed;
     }
-  }catch(e){ /* storage unavailable — will still pick up cloud data once online */ }
+  }catch(e){}
 
   try{
     const savedSettings = localStorage.getItem(LS_SETTINGS_KEY);
@@ -1513,7 +1414,7 @@ function loadItemsAndReceivers(){
       if(parsed.company) CONFIG.company = parsed.company;
       if(parsed.scanNote) CONFIG.scanNote = parsed.scanNote;
     }
-  }catch(e){ /* storage unavailable — will still pick up cloud data once online */ }
+  }catch(e){}
 
   warnIfConfigEmpty();
 }
@@ -1526,17 +1427,15 @@ function warnIfConfigEmpty(){
 
 function saveItemsToLocal(){
   try{ localStorage.setItem(LS_ITEMS_KEY, JSON.stringify(CONFIG.items)); }
-  catch(e){ /* storage full/unavailable — changes still usable this session */ }
+  catch(e){}
   pushConfigDocToCloud('items', { list: CONFIG.items });
 }
 function saveReceiversToLocal(){
   try{ localStorage.setItem(LS_RECEIVERS_KEY, JSON.stringify(CONFIG.receivers)); }
-  catch(e){ /* storage full/unavailable — changes still usable this session */ }
+  catch(e){}
   pushConfigDocToCloud('receivers', { list: CONFIG.receivers });
 }
 
-// Fire-and-forget cloud write — local save above has already completed,
-// so a slow/offline connection never blocks the UI.
 function pushConfigDocToCloud(docId, data){
   if(!window.FB) return;
   const { db, doc, setDoc } = window.FB;
@@ -1573,15 +1472,7 @@ function subscribeConfigCloudSync(){
         scheduleUpdate();
       }
     }, err => console.error('[config sync] receivers error', err)),
-
-    // Settings can live in more than one shape depending on how the cloud
-    // data was originally entered — try all of them and use whichever
-    // actually has data, instead of assuming one fixed layout:
-    //   config/settings { company:{...}, scanNote:{en1,ta1,en2,ta2} }  (nested)
-    //   config/company   { name, address }                            (own doc)
-    //   config/scanNote  { en1, ta1, en2, ta2 }                        (own doc)
     onSnapshot(doc(db, 'config', 'settings'), snap => {
-      console.log('[config sync] config/settings ->', snap.exists() ? snap.data() : '(does not exist)');
       if(!snap.exists()) return;
       const data = snap.data();
       if(data.company) CONFIG.company = data.company;
@@ -1590,7 +1481,6 @@ function subscribeConfigCloudSync(){
       scheduleUpdate();
     }, err => console.error('[config sync] settings error', err)),
     onSnapshot(doc(db, 'config', 'company'), snap => {
-      console.log('[config sync] config/company ->', snap.exists() ? snap.data() : '(does not exist)');
       if(!snap.exists()) return;
       const data = snap.data();
       if(data.name || data.address) CONFIG.company = { name: data.name || '', address: data.address || '' };
@@ -1598,11 +1488,8 @@ function subscribeConfigCloudSync(){
       scheduleUpdate();
     }, err => console.error('[config sync] company error', err)),
     onSnapshot(doc(db, 'config', 'scanNote'), snap => {
-      console.log('[config sync] config/scanNote ->', snap.exists() ? snap.data() : '(does not exist)');
       if(!snap.exists()) return;
       const data = snap.data();
-      // Accept either the fields directly on the doc, or nested under a
-      // "scanNote" key (in case it was saved the same way as /settings).
       const note = data.scanNote || data;
       if(note.en1 || note.ta1 || note.en2 || note.ta2){
         CONFIG.scanNote = { en1: note.en1 || '', ta1: note.ta1 || '', en2: note.en2 || '', ta2: note.ta2 || '' };
@@ -1613,8 +1500,6 @@ function subscribeConfigCloudSync(){
   ];
 }
 window.addEventListener('firebase-ready', subscribeConfigCloudSync);
-// ============== end config sync ==============
-
 
 function applyCustomItem(){
   const val = $('customItemInput').value.trim();
@@ -1722,973 +1607,545 @@ function numberToWords(num){
   const ones = ['', 'One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
   const tens = ['', '', 'Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
   const two = n => n < 20 ? ones[n] : tens[Math.floor(n/10)] + (n%10 ? ' ' + ones[n%10] : '');
-  const three = n => n >= 100 ? ones[Math.floor(n/100)] + ' Hundred' + (n%100 ? ' ' + two(n%100) : '') : two(n);
   
-  let str = '', crore = Math.floor(num/10000000); num %= 10000000;
-  let lakh = Math.floor(num/100000); num %= 100000;
-  let thousand = Math.floor(num/1000); num %= 1000;
-  
-  if(crore) str += three(crore) + ' Crore ';
-  if(lakh) str += three(lakh) + ' Lakh ';
-  if(thousand) str += three(thousand) + ' Thousand ';
-  if(num) str += three(num);
-  // Indian convention: currency name leads the figure, e.g. "Rupees One
-  // Thousand Two Hundred Only" rather than trailing it.
-  return 'Rupees ' + str.trim() + ' Only';
+  const convert = n => {
+    if(n < 100) return two(n);
+    if(n < 1000) return ones[Math.floor(n/100)] + ' Hundred' + (n%100 ? ' ' + two(n%100) : '');
+    if(n < 100000) return convert(Math.floor(n/1000)) + ' Thousand' + (n%1000 ? ' ' + convert(n%1000) : '');
+    if(n < 10000000) return convert(Math.floor(n/100000)) + ' Lakh' + (n%100000 ? ' ' + convert(n%100000) : '');
+    return convert(Math.floor(n/10000000)) + ' Crore' + (n%10000000 ? ' ' + convert(n%10000000) : '');
+  };
+  return 'Rupees ' + convert(num) + ' Only';
 }
 
-async function pickContact(){
-  if('contacts' in navigator && 'ContactsManager' in window){
-    try{
-      const contacts = await navigator.contacts.select(['name','tel'], {multiple:false});
-      if(contacts.length){
-        $('custName').value = ((contacts[0].name && contacts[0].name[0]) || '').slice(0, 20);
-        $('custPhone').value = ((contacts[0].tel && contacts[0].tel[0]) || '').slice(0, 13);
-        onPhoneInput(); scheduleUpdate();
-      }
-    }catch(e){ logMsg('Could not read contacts: ' + e.message, true); }
-  } else { logMsg('Contact picker not supported on this browser.', true); }
+function toggleModal(id, show){
+  const el = $(id);
+  if(el) el.style.display = show ? 'flex' : 'none';
 }
 
-function normalizePhone(raw){
-  let digits = String(raw || '').trim().replace(/\D/g,'');
-  if(digits.length === 10) return '91' + digits;
-  if(digits.length === 11 && digits.startsWith('0')) return '91' + digits.slice(1);
-  if(digits.length === 12 && digits.startsWith('91')) return digits;
-  if(digits.length === 13) return digits;
+function normalizePhone(ph){
+  let cleaned = (ph || '').replace(/\D/g, '');
+  if (cleaned.length === 10) return '91' + cleaned;
+  if (cleaned.length === 12 && cleaned.startsWith('91')) return cleaned;
+  if (cleaned.length === 13 && cleaned.startsWith('91')) return cleaned.slice(0, 12);
   return null;
 }
 
-async function collectData(){
-  const rows = [];
-  document.querySelectorAll('#itemsBody tr').forEach((tr, index) => {
+let updateTimer = null;
+function scheduleUpdate(){
+  if(updateTimer) clearTimeout(updateTimer);
+  updateTimer = setTimeout(updateUI, 50);
+}
+
+function getFormData(){
+  const dateVal = $('orderDate').value;
+  const orderNo = $('orderNo').value || '000000';
+  const custName = $('custName').value.trim();
+  const custPhone = $('custPhone').value.trim();
+
+  const items = [];
+  const rows = $('itemsBody').querySelectorAll('tr');
+  rows.forEach(tr => {
     const desc = tr.querySelector('.desc').value.trim();
     const qty = parseInt(tr.querySelector('.qty').value) || 0;
-    const freeVal = parseInt(tr.querySelector('.free-qty').value) || 0;
+    const freeQty = parseInt(tr.querySelector('.free-qty').value) || 0;
     const rate = parseFloat(tr.querySelector('.rate').value) || 0;
-    const amt = parseFloat(tr.querySelector('.amount').dataset.val) || 0;
-    if(desc && qty > 0 && rate > 0 && amt > 0) rows.push({ sno: rows.index = rows.length + 1, desc, qty, rate, amt, freeVal, index });
+    const amt = parseInt(tr.querySelector('.amount').dataset.val) || 0;
+    if(desc || qty > 0 || rate > 0){
+      items.push({ desc, qty, freeQty, rate, amount: amt });
+    }
   });
 
-  let subtotal = rows.reduce((s, r) => s + r.amt, 0);
-  let totalQty = rows.reduce((s, r) => s + r.qty, 0);
-  let totalFree = rows.reduce((s, r) => s + (r.freeVal || 0), 0);
-  let itemCount = rows.length;
+  const discLabel = $('discountLabel').value.trim();
+  const discOp = $('discountOp').dataset.op || '-';
   const discVal = parseFloat($('discountVal').value) || 0;
-  const op = $('discountOp').dataset.op;
-  const customLabel = $('discountLabel').value.trim();
-  let orderAmt = Math.max(Math.round(op === '+' ? subtotal + discVal : subtotal - discVal), 0);
 
-  handleOrderAmountChange(orderAmt);
-  mergeAndCleanPaymentRows();
+  const paymentAllocations = paymentRows.map(r => ({
+    receiverIdx: r.receiverIdx,
+    receiver: r.receiverIdx !== null ? CONFIG.receivers[r.receiverIdx] : null,
+    amount: r.amount || 0
+  }));
 
-  const paymentAllocations = paymentRows
-    .map(r => ({ receiver: r.receiverIdx !== null ? CONFIG.receivers[r.receiverIdx] : null, amount: r.amount || 0 }))
-    .filter(a => a.amount > 0);
-
-  const dateVal = $('orderDate').value;
-  return {
-    custName: toTitleCase($('custName').value.trim() || 'Cash').slice(0, 20),
-    custPhone: $('custPhone').value.trim().slice(0, 13),
-    date: dateVal ? new Date(dateVal + 'T00:00:00').toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }) : '',
-    date8: dateVal ? new Date(dateVal + 'T00:00:00').toLocaleDateString('en-GB', { day:'2-digit', month:'2-digit', year:'2-digit' }).replace(/\//g, '-') : '',
-    orderNo: $('orderNo').value,
-    rows,
-    subtotalVal: subtotal,
-    itemCount,
-    totalQty,
-    totalFree,
-    discountVal: discVal,
-    discountOp: op,
-    discountLabelText: customLabel || (op === '+' ? 'Add' : 'Discount'),
-    orderAmountVal: orderAmt,
-    amountWords: 'Order Value: ' + numberToWords(orderAmt),
-    paymentAllocations,
-    totalAllocated: paymentAllocations.reduce((s, a) => s + a.amount, 0)
-  };
+  return { dateVal, orderNo, custName, custPhone, items, discLabel, discOp, discVal, paymentAllocations };
 }
 
-function buildUpiUrlFor(receiver, amount, custName){
-  const tn = `${CONFIG.upiRef} ${custName || ''}`.trim();
-  return `upi://pay?pa=${encodeURIComponent(receiver.upi)}&pn=${encodeURIComponent(receiver.name)}&am=${amount}&cu=INR&tn=${encodeURIComponent(tn)}`;
-}
-
-function updateEditorSummary(data){
-  $('footerItemCount').textContent = String(data.itemCount).slice(-2);
-  $('footerQty').textContent = String(data.totalQty).slice(-4);
-  $('footerFree').textContent = data.totalFree > 0 ? String(data.totalFree).slice(-3) : '-';
+function updateUI(){
+  const data = getFormData();
   
-  if (data.totalFree > 0) {
-    $('footerRateSum').textContent = String(data.totalQty + data.totalFree).slice(-4);
-  } else {
-    $('footerRateSum').textContent = '-';
-  }
+  let subtotal = 0, totalQty = 0, itemCount = 0;
+  data.items.forEach(it => {
+    subtotal += it.amount;
+    totalQty += it.qty;
+    if(it.desc) itemCount++;
+  });
 
-  $('footerAmt').textContent = String(Math.round(data.subtotalVal)).slice(-7);
+  let adjustedDisc = data.discVal;
+  if(data.discOp === '-') adjustedDisc = -data.discVal;
+  let orderAmountVal = Math.max(0, Math.round(subtotal + adjustedDisc));
 
-  $('edOrderAmount').textContent = inr(data.orderAmountVal);
-  $('edAmountWords').textContent = data.amountWords;
+  data.subtotal = subtotal;
+  data.totalQty = totalQty;
+  data.itemCount = itemCount;
+  data.orderAmountVal = orderAmountVal;
 
-  const bdEl = $('edPaymentBreakdown'), bdRows = $('edPaymentBreakdownRows');
-  if(data.paymentAllocations.length){
-    bdEl.style.display = 'block';
-    bdRows.innerHTML = data.paymentAllocations.map(a =>
-      `<div class="trow" style="border:none; padding:1px 0;"><span>${esc(a.receiver ? a.receiver.name : 'Unassigned')}</span><span>${inr(a.amount)}</span></div>`
-    ).join('');
-  } else bdEl.style.display = 'none';
+  $('footerItemCount').textContent = itemCount;
+  $('footerQty').textContent = totalQty;
+  $('footerAmt').textContent = fmt(subtotal);
+
+  $('edOrderAmount').textContent = '₹' + inr(orderAmountVal);
+  $('edAmountWords').textContent = numberToWords(orderAmountVal);
+
+  handleOrderAmountChange(orderAmountVal);
+
+  let totalAllocated = 0;
+  data.paymentAllocations.forEach(a => totalAllocated += a.amount);
+  data.totalAllocated = totalAllocated;
 
   updatePaymentStatus(data);
+  renderImage(data);
 }
 
-function orderImageTemplate(data, nonCashAllocations){
-  const hasFree = data.rows.some(r => r.freeVal > 0);
-  const theadHtml = hasFree
-    ? `<tr><th>#</th><th>Item</th><th>Qty</th><th>Free</th><th>Rate</th><th>Amt</th></tr>`
-    : `<tr><th>#</th><th>Item</th><th>Qty</th><th>Rate</th><th>Amt</th></tr>`;
+function renderImage(data){
+  const wrap = $('imageWrap');
+  const imgDiv = $('orderImage');
+  if(!wrap || !imgDiv) return;
 
-  const rowsHtml = data.rows.map((r, idx) => {
-    const rowStyle = getRandomDynamicRowStyle(idx + 1);
-    return hasFree ?
-    `<tr style="${rowStyle}">
-      <td>${r.sno}</td>
-      <td class="d"><span class="img-item-name">${esc(r.desc)}</span></td>
-      <td>${r.qty}</td>
-      <td>${r.freeVal > 0 ? `<span class="img-free-lbl">${r.freeVal}</span>` : '-'}</td>
-      <td>${fmt(r.rate)}</td>
-      <td>${fmt(r.amt)}</td>
-    </tr>` :
-    `<tr style="${rowStyle}">
-      <td>${r.sno}</td>
-      <td class="d"><span class="img-item-name">${esc(r.desc)}</span></td>
-      <td>${r.qty}</td>
-      <td>${fmt(r.rate)}</td>
-      <td>${fmt(r.amt)}</td>
-    </tr>`;
-  }).join('') || `<tr><td colspan="${hasFree ? 6 : 5}" class="empty">No items added</td></tr>`;
+  wrap.style.display = 'block';
 
-  const itemCountStr = String(data.itemCount).slice(-2);
-  const totalQtyStr = String(data.totalQty).slice(-4);
-  const totalFreeStr = data.totalFree > 0 ? String(data.totalFree).slice(-3) : '-';
-  const qtyPlusFreeStr = data.totalFree > 0 ? String(data.totalQty + data.totalFree).slice(-4) : '-';
+  let itemsHtml = '';
+  const displayItems = data.items.length > 0 ? data.items : [];
+  displayItems.forEach((it, i) => {
+    const freeText = it.freeQty > 0 ? `<br><span class="img-free-lbl">+${it.freeQty} Free</span>` : '';
+    itemsHtml += `
+      <tr>
+        <td>${i + 1}</td>
+        <td class="d"><span class="img-item-name">${esc(it.desc || '—')}</span></td>
+        <td>${it.qty || '—'}${freeText}</td>
+        <td>${it.rate ? fmt(it.rate) : '—'}</td>
+        <td style="font-family:'Roboto Mono',monospace; font-weight:800;">${it.amount ? fmt(it.amount) : '—'}</td>
+      </tr>`;
+  });
 
-  const footerHtml = data.itemCount > 1 ? (hasFree ? `
-    <tr class="subtotal-row" style="background:var(--row-subtotal); font-weight:900;">
-      <td style="text-align:center; padding:4px 2px; font-size:14px;">${itemCountStr}</td>
-      <td style="text-align:left; padding:4px 2px;">Count & Sub Total</td>
-      <td style="text-align:center; padding:4px 2px;">${totalQtyStr} <span style="color:#1a7d3a;">+</span></td>
-      <td style="text-align:center; padding:4px 2px;">${totalFreeStr}</td>
-      <td style="text-align:center; padding:4px 2px;"><span style="color:var(--primary);">=</span> ${qtyPlusFreeStr}</td>
-      <td style="text-align:right; padding:4px 2px;">₹${String(Math.round(data.subtotalVal)).slice(-7)}</td>
-    </tr>` : `
-    <tr class="subtotal-row" style="background:var(--row-subtotal); font-weight:900;">
-      <td style="text-align:center; padding:4px 2px; font-size:14px;">${itemCountStr}</td>
-      <td style="text-align:left; padding:4px 2px;">Count & Sub Total</td>
-      <td style="text-align:center; padding:4px 2px;">${totalQtyStr}</td>
-      <td style="text-align:center; padding:4px 2px;">-</td>
-      <td style="text-align:right; padding:4px 2px;">₹${String(Math.round(data.subtotalVal)).slice(-7)}</td>
-    </tr>`) : '';
+  let discountHtml = '';
+  if(data.discVal > 0){
+    const opSym = data.discOp === '+' ? '+' : '-';
+    discountHtml = `
+      <div class="row">
+        <span>${esc(data.discLabel || (data.discOp === '+' ? 'Addition' : 'Discount'))}</span>
+        <span style="font-family:'Roboto Mono',monospace;">${opSym}₹${fmt(data.discVal)}</span>
+      </div>`;
+  }
 
-  const discRow = data.discountVal > 0 ? `<div class="row"><span>${esc(data.discountLabelText)}</span><span>${data.discountOp}${inr(data.discountVal)}</span></div>` : '';
-  // Payment methods block: row number (single digit) + name + 2 spaces + UPI id
-  // only — no payment link URL displayed here. The UPI deep-link is generated
-  // solely for the QR code and the WhatsApp payment message.
-  const paymentBreakdownHtml = data.paymentAllocations.length
-    ? `<div class="pay-breakdown"><b>Payment methods</b>${data.paymentAllocations.map((a, i) => {
-        const name = a.receiver ? a.receiver.name : 'Unassigned';
-        const upi = a.receiver && a.receiver.upi ? a.receiver.upi : '';
-        return `<div class="pb-row pmb-${i % 4}">
-          <div class="pb-num">${i + 1}</div>
-          <div class="pb-info">
-            <div class="pb-line1">${esc(name)}${upi ? '&nbsp;&nbsp;' + esc(upi) : ''}</div>
-          </div>
-          <div class="pb-amt">${inr(a.amount)}</div>
-        </div>`;
-      }).join('')}</div>`
-    : '';
+  // Active UPI payment methods allocation
+  const upiAllocations = data.paymentAllocations.filter(a => a.amount > 0 && a.receiver && a.receiver.upi);
+  const qrCount = upiAllocations.length;
 
-  let gridCellsHtml = '';
-  // ---- Partition-first QR grid: partitions are decided purely from qrCount,
-  // then (elsewhere, after these nodes exist in the DOM) each QR is generated
-  // into its own already-sized partition. 0 QR -> this block is skipped entirely.
-  if(nonCashAllocations.length > 0){
-    const qrCount = nonCashAllocations.length;
-    const variantClass = qrCount === 1 ? 'qr-count-1'
-                        : qrCount === 2 ? 'qr-count-2'
-                        : qrCount === 3 ? 'qr-count-3'
-                        : 'qr-count-4plus';
+  let qrGridHtml = '';
+  if(qrCount > 0){
+    let gridClass = `qr-count-${qrCount}`;
+    if(qrCount > 3) gridClass = 'qr-count-4plus';
 
-    // Single unified colour for the whole instruction block (was
-    // previously mixing primary/secondary/accent line-by-line).
-    const instructionColor = 'var(--primary)';
+    const note = CONFIG.scanNote || {};
+    const en1 = note.en1 || 'SCAN & PAY';
+    const ta1 = note.ta1 || 'ஸ்கேன் செய்து செலுத்தவும்';
+    const en2 = note.en2 || 'WITH ANY UPI APP';
+    const ta2 = note.ta2 || 'அனைத்து UPI ஆப் மூலம்';
 
-    gridCellsHtml = `<div class="grid-container ${variantClass}">`;
-
-    // Instruction partition — always grid-area "instr", occupying exactly
-    // one cell regardless of qrCount.
-    gridCellsHtml += `
+    // Formatted professional instruction box
+    let gridCells = `
       <div class="grid-cell instruction" style="grid-area:instr;">
         <div class="scan-note-grid">
-          <p class="en" style="color:${instructionColor};">${esc(CONFIG.scanNote.en1)}</p>
-          <p class="ta" style="color:${instructionColor};">${esc(CONFIG.scanNote.ta1)}</p>
-          <p class="en" style="color:${instructionColor};">${esc(CONFIG.scanNote.en2)}</p>
-          <p class="ta" style="color:${instructionColor};">${esc(CONFIG.scanNote.ta2)}</p>
+          <p class="en">${esc(en1)}</p>
+          <p class="ta">${esc(ta1)}</p>
+          <p class="en">${esc(en2)}</p>
+          <p class="ta">${esc(ta2)}</p>
         </div>
       </div>`;
 
-    // QR partitions — one per allocation. The qr-square-wrap keeps the QR
-    // square and lets it fill the full partition width with nothing overlaid
-    // on top of it (better scannability); the UPI id + amount caption sits
-    // in its own compact line below the QR, not on top of it.
-    nonCashAllocations.forEach((alloc, i) => {
-      const gridArea = `qr${i + 1}`;
-      const upiId = alloc.receiver && alloc.receiver.upi ? alloc.receiver.upi : '';
-      const amtStr = String(Math.round(alloc.amount));
-      gridCellsHtml += `
-        <div class="grid-cell qr-grid-cell" style="grid-area:${gridArea};">
+    upiAllocations.forEach((alloc, idx) => {
+      const areaName = `qr${idx + 1}`;
+      gridCells += `
+        <div class="grid-cell qr-grid-cell" style="grid-area:${areaName};">
           <div class="qr-square-wrap">
-            <div class="qr-slot-container" id="qrSlot_${i}"></div>
+            <div class="qr-slot-container" id="qrContainer_${idx}"></div>
           </div>
-          <div class="qr-caption">${esc(upiId)}, ₹${amtStr}</div>
+          <div class="qr-caption">${esc(alloc.receiver.name)} (₹${fmt(alloc.amount)})</div>
         </div>`;
     });
 
-    gridCellsHtml += `</div>`;
+    qrGridHtml = `<div class="grid-container ${gridClass}">${gridCells}</div>`;
   }
 
-  const leftEmojis = `${currentAppreciation.emojis[0]}${currentAppreciation.emojis[1]}`;
-  const rightEmojis = `${currentAppreciation.emojis[1]}${currentAppreciation.emojis[0]}`;
+  const formattedDate = data.dateVal ? new Date(data.dateVal + 'T00:00:00').toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }) : '';
 
-  return `
+  imgDiv.innerHTML = `
     <div class="order-header">
-      <div class="oh-no"><div class="oh-lbl">Number</div><div class="oh-val">${esc(data.orderNo)}</div></div>
-      <div class="oh-company"><div class="oh-name">${esc(CONFIG.company.name)}</div><div class="oh-addr">${esc(CONFIG.company.address)}</div></div>
-      <div class="oh-date"><div class="oh-lbl">Date</div><div class="oh-val">${esc(data.date8)}</div></div>
+      <div class="oh-no"><div class="oh-lbl">ORDER NO.</div><div class="oh-val">#${esc(data.orderNo)}</div></div>
+      <div class="oh-company">
+        <div class="oh-name" id="imgCompName">${esc(CONFIG.company.name || 'SREE FOUNDATION')}</div>
+        <div class="oh-addr" id="imgCompAddr">${esc(CONFIG.company.address || '')}</div>
+      </div>
+      <div class="oh-date"><div class="oh-lbl">DATE</div><div class="oh-val">${esc(formattedDate)}</div></div>
     </div>
+
     <div class="order-to">
-      <div><span class="lbl">Customer:</span><strong>${esc(data.custName) || 'Cash'}</strong></div>
-      ${data.custPhone ? `<div class="ph">${esc(data.custPhone)}</div>` : ''}
+      <div><span class="lbl">TO:</span><strong>${esc(data.custName || 'Valued Customer')}</strong></div>
+      <div class="ph">${esc(data.custPhone)}</div>
     </div>
+
     <table class="it">
-      <thead>${theadHtml}</thead>
-      <tbody>${rowsHtml}${footerHtml}</tbody>
+      <thead><tr><th style="width:7%;">#</th><th style="width:48%;">ITEM</th><th style="width:13%;">QTY</th><th style="width:15%;">RATE</th><th style="width:17%;">AMT</th></tr></thead>
+      <tbody>${itemsHtml}</tbody>
     </table>
+
     <div class="ift">
-      ${discRow}
+      <div class="row subtotal-row" style="background:var(--row-subtotal); padding:4px 8px; font-weight:900;">
+        <span>Sub Total (${data.itemCount} items)</span>
+        <span style="font-family:'Roboto Mono',monospace;">₹${fmt(data.subtotal)}</span>
+      </div>
+      ${discountHtml}
       <div class="row grand">
-        <span class="amount-words-container">${esc(data.amountWords)}</span>
+        <div class="amount-words-container">${esc(numberToWords(data.orderAmountVal))}</div>
         <span>₹${inr(data.orderAmountVal)}</span>
       </div>
     </div>
+
     <div class="ty">
-      <span class="ty-emojis">${leftEmojis}</span>
-      <span class="fancy-text" id="dynamicAppreciationText">${esc(currentAppreciation.text)}</span>
-      <span class="ty-emojis">${rightEmojis}</span>
+      <span class="ty-emojis">${currentAppreciation.emojis[0]}</span>
+      <span class="fancy-text">${esc(currentAppreciation.text)}</span>
+      <span class="ty-emojis">${currentAppreciation.emojis[1]}</span>
     </div>
-    ${paymentBreakdownHtml}
-    ${gridCellsHtml}`;
-}
 
-let debounceTimer = null;
-function scheduleUpdate(){
-  markFormDirty();
-  clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(renderOrderImage, 150);
-}
+    ${qrGridHtml}
+  `;
 
-async function renderOrderImage(){
-  const data = await collectData();
-  updateEditorSummary(data);
-  const nonCash = data.paymentAllocations.filter(a => a.receiver && a.receiver.upi);
+  fitTextToWidth($('imgCompName'), 24, 14);
+  fitTextToWidth($('imgCompAddr'), 12, 8);
 
-  const unassignedExists = data.paymentAllocations.some(a => a.receiver === null);
-  const diff = data.orderAmountVal - Math.round(data.totalAllocated);
-  const isValid = data.orderAmountVal > 0 && diff === 0 && data.rows.length > 0 && !unassignedExists;
-  const imageWrap = $('imageWrap');
+  // Fit instruction text neatly into partition space
+  const instrP = imgDiv.querySelectorAll('.scan-note-grid p');
+  instrP.forEach(p => fitTextToWidth(p, 13, 7));
 
-  $('btnPay').disabled = !isValid;
-  $('btnImage').disabled = !isValid;
-  $('btnSave').disabled = !isValid;
-
-  if(!isValid){
-    imageWrap.style.display = 'none';
-    $('orderImage').innerHTML = '';
-    return data;
-  }
-
-  imageWrap.style.display = 'block';
-
-  const container = $('orderImage');
-  container.innerHTML = orderImageTemplate(data, nonCash);
-
-  // Shrink company name/address and the QR scan-instruction lines to the
-  // largest size that fits their space on one line, without wrapping.
-  fitTextToWidth(container.querySelector('.oh-name'), 24, 9);
-  fitTextToWidth(container.querySelector('.oh-addr'), 12, 7);
-  container.querySelectorAll('.scan-note-grid p.en').forEach(el => fitTextToWidth(el, 15, 7));
-  container.querySelectorAll('.scan-note-grid p.ta').forEach(el => fitTextToWidth(el, 14, 7));
-
-  if(nonCash.length > 0){
-    let minAvailable = 150;
-    nonCash.forEach((_, i) => {
-      const slotContainer = $(`qrSlot_${i}`);
-      if(slotContainer){
-        const rect = slotContainer.getBoundingClientRect();
-        const side = Math.min(rect.width, rect.height);
-        if(side > 0 && side < minAvailable) minAvailable = side;
+  // Generate QR codes SVG/Canvas inside containers
+  upiAllocations.forEach((alloc, idx) => {
+    const container = $(`qrContainer_${idx}`);
+    if(!container) return;
+    container.innerHTML = '';
+    const upiUri = `upi://pay?pa=${encodeURIComponent(alloc.receiver.upi)}&pn=${encodeURIComponent(alloc.receiver.name)}&am=${alloc.amount}&cu=INR&tn=${encodeURIComponent('Order ' + data.orderNo)}`;
+    try {
+      const qrcodeGen = qrcode(0, 'M');
+      qrcodeGen.addData(upiUri);
+      qrcodeGen.make();
+      container.innerHTML = qrcodeGen.createSvgTag({ scalable: true });
+      const svg = container.querySelector('svg');
+      if(svg){
+        svg.style.width = '100%';
+        svg.style.height = '100%';
+        svg.style.display = 'block';
       }
-    });
-
-    const qrTargetSize = Math.max(80, Math.floor(minAvailable));
-
-    nonCash.forEach((alloc, i) => {
-      const slotContainer = $(`qrSlot_${i}`);
-      if(slotContainer){
-        const upiUrl = buildUpiUrlFor(alloc.receiver, alloc.amount, data.custName);
-        generateQr(slotContainer, upiUrl, qrTargetSize, qrSafeColor(THEME.primary || '#0B5E64'));
-      }
-    });
-  }
-  return data;
-}
-
-// Some theme primaries (e.g. golds/light blues) are too light for reliable
-// QR contrast against a white background. Force a dark, scan-safe colour —
-// never a light theme colour — for the QR modules themselves.
-function qrSafeColor(hex){
-  const h = String(hex || '#0B5E64').replace('#', '');
-  const r = parseInt(h.substr(0, 2), 16) || 0;
-  const g = parseInt(h.substr(2, 2), 16) || 0;
-  const b = parseInt(h.substr(4, 2), 16) || 0;
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  if(luminance > 0.42){
-    const dr = Math.round(r * 0.42), dg = Math.round(g * 0.42), db = Math.round(b * 0.42);
-    return '#' + [dr, dg, db].map(v => v.toString(16).padStart(2, '0')).join('');
-  }
-  return hex;
-}
-
-function generateQr(slot, text, size, colorHex){
-  slot.innerHTML = '';
-  if(typeof qrcode === 'undefined'){ return false; }
-  try{
-    const qr = qrcode(0, 'H');
-    qr.addData(text);
-    qr.make();
-    const count = qr.getModuleCount();
-    const quiet = 1;
-    const total = count + quiet * 2;
-    const moduleSize = Math.max(1, Math.floor(size / total));
-    const renderedSize = moduleSize * total;
-
-    const box = document.createElement('div');
-    box.style.position = 'relative';
-    box.style.width = renderedSize + 'px';
-    box.style.height = renderedSize + 'px';
-    box.style.background = '#ffffff';
-    box.style.margin = 'auto';
-
-    for(let r = 0; r < total; r++){
-      const mr = r - quiet;
-      for(let c = 0; c < total; c++){
-        const mc = c - quiet;
-        const dark = (mr >= 0 && mr < count && mc >= 0 && mc < count) && qr.isDark(mr, mc);
-        if(!dark) continue;
-        const cell = document.createElement('div');
-        cell.style.position = 'absolute';
-        cell.style.left = (c * moduleSize) + 'px';
-        cell.style.top = (r * moduleSize) + 'px';
-        cell.style.width = moduleSize + 'px';
-        cell.style.height = moduleSize + 'px';
-        cell.style.background = colorHex;
-        box.appendChild(cell);
-      }
+    } catch(e) {
+      container.textContent = 'QR Error';
     }
-    slot.appendChild(box);
-    return true;
-  }catch(e){
-    slot.innerHTML = '';
-    return false;
-  }
-}
-
-const sanitizeFileName = s => String(s || 'Customer').trim().replace(/[^a-zA-Z0-9\-_ ]/g, '').replace(/\s+/g, '-') || 'Customer';
-
-function triggerDownload(blob, fileName){
-  const url = URL.createObjectURL(blob), a = document.createElement('a');
-  a.href = url; a.download = fileName; a.style.display = 'none';
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 4000);
-}
-
-// Force-overwrite image saving. A plain <a download> can't overwrite an
-// existing file — the browser silently renames the new one (image(1).png,
-// image(2).png...), piling up duplicates for repeat saves of the same
-// order. Where the File System Access API is available (Chromium), we
-// instead get a real file handle once per order, cache it, and write
-// through it every time — createWritable() truncates and rewrites the
-// same file in place, so re-saving the same order always overwrites
-// instead of duplicating. Anywhere else (Firefox, iOS, older Chromium)
-// this silently falls back to the original instant download — no dialog,
-// no behavior change, no regression.
-const orderFileHandles = new Map(); // orderId -> FileSystemFileHandle
-async function saveImageBlob(blob, fileName, orderId){
-  if('showSaveFilePicker' in window){
-    try{
-      let handle = orderFileHandles.get(orderId);
-      if(!handle || handle.name !== fileName){
-        handle = await window.showSaveFilePicker({
-          suggestedName: fileName,
-          types: [{ description: 'PNG Image', accept: { 'image/png': ['.png'] } }]
-        });
-        orderFileHandles.set(orderId, handle);
-      }
-      const writable = await handle.createWritable(); // overwrites existing file, no prompt
-      await writable.write(blob);
-      await writable.close();
-      return;
-    }catch(err){
-      if(err && err.name === 'AbortError') return; // user cancelled the picker — don't also force-download
-      // Any other failure (older browser quirk, permission edge case) — fall through to plain download below.
-    }
-  }
-  triggerDownload(blob, fileName);
-}
-
-function validateForSend(data){
-  if(!data.rows.length){ logMsg('Please add at least one item.', true); focusField('desc_row_1'); return false; }
-  if(data.orderAmountVal < 1){ logMsg('Order amount must be at least ₹1.', true); focusField('desc_row_1'); return false; }
-  if(data.paymentAllocations.some(a => a.receiver === null)){
-    logMsg('Select payment methods for all lines.', true);
-    const idx = paymentRows.findIndex(r => r.receiverIdx === null);
-    focusField(idx >= 0 ? `payMethodBtn_${idx}` : 'paymentRowsContainer');
-    return false;
-  }
-  const diff = data.orderAmountVal - Math.round(data.totalAllocated);
-  if(diff !== 0){
-    logMsg(`Payment allocation mismatch (${inr(diff)}).`, true);
-    focusField(`payAmountInput_${Math.max(paymentRows.length - 1, 0)}`);
-    return false;
-  }
-  return true;
-}
-
-function requirePhone(data){
-  const phone = normalizePhone(data.custPhone);
-  if(!phone){
-    logMsg('Please enter a valid mobile number.', true);
-    focusField('custPhone');
-    return null;
-  }
-  return phone;
-}
-
-// ---- Action button label choreography ----
-// Each of the three action buttons shows its current status as its own
-// label instead of a fixed caption. Save Bill's "Saved" state persists
-// until the form is edited again (see markFormDirty, called from
-// scheduleUpdate); WA Pay / WA Image reset themselves the moment their
-// own flow finishes, since "Open WA" is a one-shot action, not a status
-// that should linger.
-const ACTION_DEFAULTS = {
-  btnSave:  { icon: '💾', text: 'Save Bill' },
-  btnPay:   { icon: '💰', text: 'WA Pay' },
-  btnImage: { icon: '🖼️', text: 'WA Image' }
-};
-function setActionLabel(btnId, icon, text){
-  const btn = $(btnId);
-  if(btn) btn.innerHTML = `<span class="ic">${icon}</span><span class="lbl">${text}</span>`;
-}
-function resetActionLabel(btnId){
-  const d = ACTION_DEFAULTS[btnId];
-  if(d) setActionLabel(btnId, d.icon, d.text);
-}
-function markFormDirty(){
-  isDirty = true;
-  const btn = $('btnSave');
-  if(btn && btn.dataset.state === 'done'){
-    btn.dataset.state = 'idle';
-    resetActionLabel('btnSave');
-  }
-}
-
-// Shared by WA Pay and WA Image: save the bill, save the receipt image,
-// then hand off to a caller-supplied step that builds the WhatsApp URL.
-//
-// Two things this specifically guards against:
-// 1. Popup blocking — window.open() only reliably escapes the popup
-//    blocker when called synchronously inside the click handler. Once we
-//    go through any await (image render, the save, the pause before
-//    opening), a browser can silently block a *new* window.open() call.
-//    So we open a blank tab synchronously right here, before any await,
-//    and just navigate that same tab once the WhatsApp URL is ready —
-//    navigating an already-open tab is never blocked, however long the
-//    async work in between takes.
-// 2. Redundant re-saving — if this exact bill was already saved and
-//    nothing has changed since (isDirty is false), we skip straight to
-//    opening WhatsApp instead of re-saving the bill and re-rendering /
-//    re-downloading the image.
-async function runBillAndImageFlow(btnId, buildWaUrl){
-  const btn = $(btnId);
-  const waWindow = window.open('', '_blank'); // reserved now, navigated later
-  try{
-    const data = await renderOrderImage();
-    if(!validateForSend(data)){ if(waWindow) waWindow.close(); return; }
-    const phone = requirePhone(data); if(!phone){ if(waWindow) waWindow.close(); return; }
-
-    btn.disabled = true; btn.dataset.state = 'busy';
-
-    if(isDirty || !currentOrderId){
-      setActionLabel(btnId, '⏳', 'Saving bill');
-      await persistOrderRecord(data);
-      isDirty = false;
-
-      setActionLabel(btnId, '⏳', 'Saving image');
-      if(typeof document.fonts !== 'undefined') await document.fonts.ready;
-      const node = $('imageWrap');
-      const blob = await captureBillImageBlob(node, 2.5);
-      if(!blob) throw new Error('Image creation failed.');
-      const fileName = `${data.orderNo}-${sanitizeFileName(data.custName)}.png`;
-      await saveImageBlob(blob, fileName, currentOrderId);
-
-      setActionLabel(btnId, '📲', 'Open WA');
-      logMsg('Saved: ' + fileName + ' — opening WhatsApp…');
-      await new Promise(resolve => setTimeout(resolve, 400));
-    } else {
-      setActionLabel(btnId, '📲', 'Open WA');
-      logMsg('Already saved — opening WhatsApp…');
-    }
-
-    const url = buildWaUrl(data, phone);
-    if(waWindow && !waWindow.closed) waWindow.location.href = url;
-    else window.open(url, '_blank'); // fallback if the reserved tab got closed somehow
-  }catch(e){
-    if(waWindow && !waWindow.closed) waWindow.close();
-    logMsg('Error: ' + e.message, true);
-  }
-  btn.disabled = false; btn.dataset.state = 'idle';
-  resetActionLabel(btnId);
-}
-
-async function sendPayment(){
-  await runBillAndImageFlow('btnPay', (data, phone) => {
-    const nonCash = data.paymentAllocations.filter(a => a.receiver && a.receiver.upi);
-    let message;
-    if(!nonCash.length){
-      message = `Hello ${data.custName}, your order ${data.orderNo} amount is ${inr(data.orderAmountVal)} — payable by cash. Thank you!`;
-    } else if(nonCash.length === 1){
-      message = CONFIG.paymentMessage({ custName: data.custName, orderNo: data.orderNo, amount: inr(data.orderAmountVal), upiLink: buildUpiUrlFor(nonCash[0].receiver, nonCash[0].amount, data.custName), upiPa: nonCash[0].receiver.upi, upiName: nonCash[0].receiver.name });
-    } else {
-      message = `Hello ${data.custName}, your order ${data.orderNo} amount is ${inr(data.orderAmountVal)}, split across:\n${nonCash.map(a => `- ${a.receiver.name}: ${inr(a.amount)}`).join('\n')}\nThank you!`;
-    }
-    return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
   });
 }
 
-// WA Image button: save the bill (cloud + local), save the image, then
-// open the customer's WhatsApp chat so the image can be attached manually.
-async function saveAndSendImage(){
-  await runBillAndImageFlow('btnImage', (data, phone) => `https://wa.me/${phone}`);
-}
-
-// ===================== Cloud sync (Firebase Firestore) =====================
-// currentOrderId identifies the Firestore document for the order on screen.
-// It's set fresh for a new order, and reused when an existing order is
-// loaded — so Save Order updates that same record instead of duplicating it.
-//
-// Local-first caching: both the orders list and the customer suggestions
-// are backed by a localStorage mirror. Reads come from that mirror
-// instantly (no network wait); a background Firestore fetch then merges
-// in anything newer and re-renders/persists. Writes (save/upsert) update
-// the local mirror immediately, then sync to Firestore best-effort — so
-// the UI never has to wait on the network to feel correct.
-let currentOrderId = null;
-let isDirty = true; // true = current form doesn't match a saved bill yet
-const LS_ORDERS_KEY = 'sf_orders_cache_v1';
-const LS_CUSTOMERS_KEY = 'sf_customers_cache_v1';
-
-function readLocalCache(key){
-  try{ return JSON.parse(localStorage.getItem(key) || '[]'); }catch(e){ return []; }
-}
-function writeLocalCache(key, list, cap){
-  try{ localStorage.setItem(key, JSON.stringify(list.slice(0, cap))); }catch(e){ /* storage full/unavailable — cloud copy is unaffected */ }
-}
-function mergeById(localList, freshList){
-  const map = new Map();
-  localList.forEach(x => map.set(x.id, x));
-  freshList.forEach(x => map.set(x.id, x)); // freshly-fetched cloud data wins on conflict
-  return Array.from(map.values()).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-}
-
-let ordersCache = readLocalCache(LS_ORDERS_KEY);
-let customerCache = readLocalCache(LS_CUSTOMERS_KEY);
-
-function newOrderId(){
-  const d = ($('orderDate').value || '').replace(/-/g, '') || 'nodate';
-  const no = $('orderNo').value || '000000';
-  return `${d}-${no}-${Math.random().toString(36).slice(2, 6)}`;
-}
-
-function fbReady(){ return !!(window.FB && window.FB.db); }
-
-async function saveOrderToCloud(id, record){
-  if(!fbReady()) throw new Error('Cloud sync is still starting up — try again in a moment.');
-  const { db, doc, setDoc } = window.FB;
-  await setDoc(doc(db, 'orders', id), record);
-}
-
-async function deleteOrderFromCloud(id){
-  const { db, doc, deleteDoc } = window.FB;
-  await deleteDoc(doc(db, 'orders', id));
-}
-
-async function fetchOrdersList(){
-  const { db, collection, getDocs, query, orderBy, limit } = window.FB;
-  const q = query(collection(db, 'orders'), orderBy('updatedAt', 'desc'), limit(200));
-  const snap = await getDocs(q);
-  const out = [];
-  snap.forEach(d => out.push({ id: d.id, ...d.data() }));
-  return out;
-}
-
-// Background refresh: merges Firestore's orders list into the local mirror
-// and persists it. Errors are swallowed — callers just keep using
-// whatever's already in the local mirror.
-async function refreshOrdersCache(){
-  if(!fbReady()) return;
-  try{
-    const cloud = await fetchOrdersList();
-    ordersCache = mergeById(ordersCache, cloud);
-    writeLocalCache(LS_ORDERS_KEY, ordersCache, 200);
-  }catch(e){ /* offline — local mirror still usable */ }
-}
-window.addEventListener('firebase-ready', refreshOrdersCache);
-
-// Builds the order record and writes it into the local mirror immediately
-// (synchronous — no network involved). The Firestore write is fired
-// afterward but NOT awaited, so callers (Save Bill, WA Pay, WA Image)
-// never sit blocked on the network — the local save is what makes them
-// responsive; the cloud copy catches up in the background, and Firestore's
-// own offline queue retries it automatically once the connection is back.
-async function persistOrderRecord(data){
-  if(!currentOrderId) currentOrderId = newOrderId();
-  const record = {
-    orderNo: data.orderNo,
-    dateISO: $('orderDate').value,
-    custName: data.custName,
-    custPhone: data.custPhone,
-    rows: data.rows.map(r => ({ desc: r.desc, qty: r.qty, rate: r.rate, freeVal: r.freeVal || 0 })),
-    discountLabelText: data.discountLabelText,
-    discountOp: data.discountOp,
-    discountVal: data.discountVal,
-    paymentAllocations: data.paymentAllocations.map(a => ({
-      receiverIdx: a.receiver ? CONFIG.receivers.indexOf(a.receiver) : null,
-      amount: a.amount
-    })),
-    orderAmountVal: data.orderAmountVal,
-    updatedAt: Date.now()
-  };
-
-  const localRec = { id: currentOrderId, ...record };
-  const oi = ordersCache.findIndex(o => o.id === currentOrderId);
-  if(oi >= 0) ordersCache[oi] = localRec; else ordersCache.unshift(localRec);
-  writeLocalCache(LS_ORDERS_KEY, ordersCache, 200);
-  upsertCustomerLocal(data.custName, data.custPhone);
-
-  const orderId = currentOrderId;
-  saveOrderToCloud(orderId, record)
-    .then(() => upsertCustomerCloud(data.custName, data.custPhone))
-    .catch(() => { /* stays queued locally — retried by Firestore once online */ });
-
-  return orderId;
-}
-
-// Local half of the customer-suggestion cache: instant, no network.
-function upsertCustomerLocal(name, phone){
-  const cleanName = (name || '').trim(), cleanPhone = (phone || '').trim();
-  if(!cleanName && !cleanPhone) return null;
-  const id = cleanPhone || sanitizeFileName(cleanName);
-  const rec = { id, name: cleanName, phone: cleanPhone, updatedAt: Date.now() };
-  const idx = customerCache.findIndex(c => c.id === id);
-  if(idx >= 0) customerCache[idx] = rec; else customerCache.unshift(rec);
-  writeLocalCache(LS_CUSTOMERS_KEY, customerCache, 500);
-  return rec;
-}
-
-// Cloud half: fire-and-forget from persistOrderRecord, so it never blocks
-// the UI. Safe to call on its own too (e.g. a future "sync now" action).
-async function upsertCustomerCloud(name, phone){
-  if(!fbReady()) return;
-  const cleanName = (name || '').trim(), cleanPhone = (phone || '').trim();
-  if(!cleanName && !cleanPhone) return;
-  const id = cleanPhone || sanitizeFileName(cleanName);
-  try{
-    const { db, doc, setDoc } = window.FB;
-    await setDoc(doc(db, 'customers', id), { name: cleanName, phone: cleanPhone, updatedAt: Date.now() }, { merge: true });
-  }catch(e){ /* offline — local copy already saved, will reconcile on next successful fetch */ }
-}
-
-// Background refresh: merges Firestore's customer list into the local
-// mirror and persists it, without blocking anything the user is doing.
-async function refreshCustomerCache(){
-  if(!fbReady()) return;
-  try{
-    const { db, collection, getDocs, query, orderBy, limit } = window.FB;
-    const q = query(collection(db, 'customers'), orderBy('updatedAt', 'desc'), limit(500));
-    const snap = await getDocs(q);
-    const cloud = [];
-    snap.forEach(d => cloud.push({ id: d.id, ...d.data() }));
-    customerCache = mergeById(customerCache, cloud);
-    writeLocalCache(LS_CUSTOMERS_KEY, customerCache, 500);
-  }catch(e){ /* offline on first load — local cache still works, will retry once online */ }
-}
-window.addEventListener('firebase-ready', refreshCustomerCache);
-
-// ---- Customer name/phone suggestions ----
-function showCustomerSuggestions(source){
-  const box = $('custSuggestBox');
-  const nameVal = $('custName').value.trim().toLowerCase();
-  const phoneVal = $('custPhone').value.trim();
-  const q = source === 'name' ? nameVal : phoneVal;
-  if(q.length < 2){ box.style.display = 'none'; box.innerHTML = ''; return; }
-  const filtered = customerCache.filter(c => source === 'name'
-    ? (c.name || '').toLowerCase().includes(nameVal)
-    : (c.phone || '').includes(phoneVal)
-  ).slice(0, 6);
-  if(!filtered.length){ box.style.display = 'none'; box.innerHTML = ''; return; }
-  box.innerHTML = filtered.map(c =>
-    `<button type="button" class="suggest-item" onmousedown="event.preventDefault(); selectCustomerSuggestion('${c.id}')">${esc(c.name || '(no name)')} — ${esc(c.phone || '—')}</button>`
-  ).join('');
-  box.style.display = 'block';
-}
-
-function hideCustomerSuggestionsDelayed(){
-  setTimeout(() => { const box = $('custSuggestBox'); if(box) box.style.display = 'none'; }, 150);
-}
-
-function selectCustomerSuggestion(id){
-  const c = customerCache.find(x => x.id === id);
-  if(!c) return;
-  $('custName').value = c.name || '';
-  $('custPhone').value = c.phone || '';
-  onPhoneInput();
-  $('custSuggestBox').style.display = 'none';
+function resetOrder(){
+  randomizeAppreciation();
+  setDefaultDate();
+  orderNoManual = false;
+  refreshOrderNo();
+  $('custName').value = '';
+  $('custPhone').value = '';
+  $('discountLabel').value = '';
+  $('discountVal').value = '0';
+  $('discountOp').dataset.op = '-';
+  $('discountOp').textContent = '−';
+  
+  buildRows();
+  paymentRows = [{ receiverIdx: 0, amount: null }];
+  renderPaymentRows();
   scheduleUpdate();
-  focusField('desc_row_1');
+  logMsg('New order started.');
+  focusField('custName');
 }
 
-// ---- Order number field → previous-orders popup ----
-async function openOrderHistoryModal(){
-  toggleModal('orderHistoryModal', true);
-  $('orderHistorySearch').value = '';
-  // Instant render from the local mirror — no network wait.
-  renderOrderHistoryList(ordersCache);
-  if(!ordersCache.length){
-    $('orderHistoryList').innerHTML = '<div class="field-hint">Loading…</div>';
-  }
-  setTimeout(() => $('orderHistorySearch').focus(), 50);
-  // Then grow/refresh the list with whatever Firestore has, in the background.
-  await refreshOrdersCache();
-  if(ordersCache.length){
-    renderOrderHistoryList(filterOrderHistory($('orderHistorySearch').value));
-  } else {
-    $('orderHistoryList').innerHTML = '<div class="field-hint warn">No saved orders yet (or offline). You can still enter a number below to start a new order.</div>';
-  }
+const ORDER_HIST_KEY = 'sf_order_history_v1';
+function getLocalOrderHistory(){
+  try { return JSON.parse(localStorage.getItem(ORDER_HIST_KEY)) || []; } catch(e){ return []; }
+}
+function saveLocalOrderHistory(list){
+  try { localStorage.setItem(ORDER_HIST_KEY, JSON.stringify(list)); } catch(e){}
 }
 
-// '<' / '>' arrows beside the order number: step through saved bills in
-// order of last modification (ordersCache is kept sorted newest-first).
-// '<' moves to an older bill, '>' moves to a newer one; both wrap around.
-function cycleOrder(step){
-  if(!ordersCache.length){
-    logMsg('No saved bills to cycle through yet.');
+async function saveOrder(){
+  const data = getFormData();
+  if(!data.custName && !data.items.length){
+    logMsg('Nothing to save — fill customer details or items.', true);
     return;
   }
-  const curIdx = ordersCache.findIndex(o => o.id === currentOrderId);
-  if(curIdx === -1){ loadOrderFromCloud(ordersCache[0].id); return; }
-  const nextIdx = (curIdx + step + ordersCache.length) % ordersCache.length;
-  loadOrderFromCloud(ordersCache[nextIdx].id);
+
+  const orderObj = {
+    id: data.orderNo,
+    orderNo: data.orderNo,
+    dateVal: data.dateVal,
+    custName: data.custName,
+    custPhone: data.custPhone,
+    items: data.items,
+    discLabel: data.discLabel,
+    discOp: data.discOp,
+    discVal: data.discVal,
+    paymentAllocations: data.paymentAllocations,
+    orderAmountVal: data.orderAmountVal,
+    savedAt: new Date().toISOString()
+  };
+
+  let history = getLocalOrderHistory();
+  const existingIdx = history.findIndex(h => h.orderNo === data.orderNo);
+  if(existingIdx !== -1) history[existingIdx] = orderObj;
+  else history.unshift(orderObj);
+  saveLocalOrderHistory(history);
+
+  if(window.FB){
+    const { db, doc, setDoc } = window.FB;
+    try {
+      await setDoc(doc(db, 'orders', data.orderNo), orderObj);
+      logMsg(`Order #${data.orderNo} saved locally & synced to cloud.`);
+    } catch(e) {
+      logMsg(`Order #${data.orderNo} saved locally (cloud offline).`);
+    }
+  } else {
+    logMsg(`Order #${data.orderNo} saved locally.`);
+  }
 }
 
-function ddMmm(iso){
-  if(!iso) return '------';
-  const d = new Date(iso + 'T00:00:00');
-  if(isNaN(d)) return '------';
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  return pad(d.getDate()) + '-' + months[d.getMonth()];
+function sendPayment(){
+  const data = getFormData();
+  const phone = normalizePhone(data.custPhone);
+  if(!phone){
+    logMsg('Please enter a valid 10-digit customer mobile number.', true);
+    focusField('custPhone');
+    return;
+  }
+
+  const upiAlloc = data.paymentAllocations.find(a => a.amount > 0 && a.receiver && a.receiver.upi);
+  const upiPa = upiAlloc ? upiAlloc.receiver.upi : (CONFIG.receivers[0]?.upi || '');
+  const upiName = upiAlloc ? upiAlloc.receiver.name : (CONFIG.receivers[0]?.name || '');
+  const upiLink = `upi://pay?pa=${encodeURIComponent(upiPa)}&pn=${encodeURIComponent(upiName)}&am=${data.orderAmountVal}&cu=INR&tn=${encodeURIComponent('Order ' + data.orderNo)}`;
+
+  const msgText = CONFIG.paymentMessage({
+    custName: data.custName || 'Valued Customer',
+    amount: inr(data.orderAmountVal),
+    orderNo: data.orderNo,
+    upiLink: upiLink,
+    upiPa: upiPa,
+    upiName: upiName
+  });
+
+  const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(msgText)}`;
+  window.open(waUrl, '_blank');
+  logMsg(`WhatsApp payment message dispatched for Order #${data.orderNo}.`);
 }
 
-function filterOrderHistory(text){
-  const t = (text || '').trim().toLowerCase();
-  if(!t) return ordersCache;
-  return ordersCache.filter(o =>
-    (o.custName || '').toLowerCase().includes(t) ||
-    (o.custPhone || '').includes(t) ||
-    (o.orderNo || '').includes(t)
+async function saveAndSendImage(){
+  const data = getFormData();
+  await saveOrder();
+
+  const wrap = $('imageWrap');
+  if(!wrap) return;
+
+  logMsg('Generating bill image...');
+  try {
+    const blob = await captureBillImageBlob(wrap, 2);
+    const fileName = `Order_${data.orderNo}_${data.custName || 'Customer'}.png`;
+
+    if(navigator.canShare && navigator.canShare({ files: [new File([blob], fileName, { type: 'image/png' })] })){
+      const file = new File([blob], fileName, { type: 'image/png' });
+      await navigator.share({ files: [file], title: `Order #${data.orderNo}` });
+      logMsg('Bill image shared successfully.');
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+      logMsg(`Bill image downloaded as ${fileName}.`);
+    }
+  } catch(e) {
+    logMsg('Failed to generate image: ' + e.message, true);
+  }
+}
+
+function openOrderHistoryModal(){
+  renderOrderHistoryList(getLocalOrderHistory());
+  toggleModal('orderHistoryModal', true);
+}
+
+function filterOrderHistory(q){
+  const history = getLocalOrderHistory();
+  if(!q.trim()) return history;
+  const term = q.toLowerCase();
+  return history.filter(h =>
+    (h.orderNo && h.orderNo.toLowerCase().includes(term)) ||
+    (h.custName && h.custName.toLowerCase().includes(term)) ||
+    (h.custPhone && h.custPhone.includes(term))
   );
 }
 
 function renderOrderHistoryList(list){
-  const listEl = $('orderHistoryList');
-  listEl.innerHTML = '';
-  if(!list.length){ listEl.innerHTML = '<div class="field-hint">No matching orders.</div>'; return; }
-  list.forEach(o => {
-    const firstItem = (o.rows && o.rows[0] && o.rows[0].desc) || '—';
-    const amt = String(Math.round(o.orderAmountVal || 0)).padStart(7, ' ');
+  const container = $('orderHistoryList');
+  container.innerHTML = '';
+  if(!list.length){
+    container.innerHTML = '<div class="field-hint" style="padding:10px;">No saved orders found.</div>';
+    return;
+  }
+
+  list.forEach(ord => {
     const row = document.createElement('div');
     row.className = 'order-hist-row';
+    const firstItem = ord.items && ord.items[0] ? ord.items[0].desc : 'No items';
+
     row.innerHTML = `
-      <button type="button" class="order-hist-btn" onclick="loadOrderFromCloud('${o.id}')">
-        <span class="ohr-date">${ddMmm(o.dateISO)}</span>
-        <span class="ohr-name">${esc(o.custName || '')}</span>
+      <button type="button" class="order-hist-btn">
+        <span class="ohr-date">#${esc(ord.orderNo)}</span>
+        <span class="ohr-name">${esc(ord.custName || 'Customer')}</span>
         <span class="ohr-item">${esc(firstItem)}</span>
-        <span class="ohr-amt">${esc(amt)}</span>
+        <span class="ohr-amt">₹${inr(ord.orderAmountVal || 0)}</span>
       </button>
-      <button type="button" class="order-hist-del" title="Delete order">✕</button>`;
-    row.querySelector('.order-hist-del').onclick = () => confirmDeleteOrder(o.id);
-    listEl.appendChild(row);
+      <button type="button" class="order-hist-del" title="Delete">✕</button>
+    `;
+
+    row.querySelector('.order-hist-btn').onclick = () => loadOrderFromHistory(ord);
+    row.querySelector('.order-hist-del').onclick = (e) => {
+      e.stopPropagation();
+      deleteOrderFromHistory(ord.orderNo);
+    };
+    container.appendChild(row);
   });
 }
 
-async function confirmDeleteOrder(id){
-  if(!confirm('Delete this saved order? This cannot be undone.')) return;
-  try{
-    await deleteOrderFromCloud(id);
-    ordersCache = ordersCache.filter(o => o.id !== id);
-    writeLocalCache(LS_ORDERS_KEY, ordersCache, 200);
-    renderOrderHistoryList(filterOrderHistory($('orderHistorySearch').value));
-  }catch(e){
-    alert('Could not delete order: ' + e.message);
-  }
-}
-
-function loadOrderFromCloud(id){
-  const o = ordersCache.find(x => x.id === id);
-  if(!o) return;
+function loadOrderFromHistory(ord){
   toggleModal('orderHistoryModal', false);
-  currentOrderId = id;
+  $('orderDate').value = ord.dateVal || '';
   orderNoManual = true;
+  $('orderNo').value = ord.orderNo || '';
+  $('custName').value = ord.custName || '';
+  $('custPhone').value = ord.custPhone || '';
+  $('discountLabel').value = ord.discLabel || '';
+  $('discountVal').value = ord.discVal || 0;
+  $('discountOp').dataset.op = ord.discOp || '-';
+  $('discountOp').textContent = ord.discOp || '-';
 
-  if(o.dateISO) $('orderDate').value = o.dateISO;
-  $('orderNo').value = o.orderNo || '';
-  $('custName').value = o.custName || '';
-  $('custPhone').value = o.custPhone || '';
-  onPhoneInput();
+  buildRows();
+  const rows = $('itemsBody').querySelectorAll('tr');
+  if(ord.items && ord.items.length){
+    ord.items.forEach((it, i) => {
+      if(i >= rows.length) addRow();
+      const tr = $('itemsBody').querySelectorAll('tr')[i];
+      if(tr){
+        tr.querySelector('.desc').value = it.desc || '';
+        tr.querySelector('.qty').value = it.qty || '';
+        tr.querySelector('.free-qty').value = it.freeQty || '';
+        tr.querySelector('.rate').value = it.rate || '';
+        calcRow(tr.querySelector('.qty'), false);
+      }
+    });
+  }
 
-  const op = o.discountOp === '+' ? '+' : '-';
-  $('discountOp').dataset.op = op; $('discountOp').textContent = op === '+' ? '+' : '−';
-  $('discountLabel').placeholder = op === '+' ? 'Add' : 'Discount';
-  $('discountLabel').value = (o.discountLabelText && o.discountLabelText !== 'Discount' && o.discountLabelText !== 'Add') ? o.discountLabelText : '';
-  $('discountVal').value = o.discountVal || 0;
+  paymentRows = ord.paymentAllocations || [{ receiverIdx: 0, amount: ord.orderAmountVal }];
+  renderPaymentRows();
+  scheduleUpdate();
+  logMsg(`Loaded Order #${ord.orderNo}.`);
+}
 
-  const tbody = $('itemsBody');
-  tbody.innerHTML = '';
-  const rowsData = (o.rows && o.rows.length) ? o.rows : [];
-  const rowTarget = Math.max(rowsData.length, CONFIG.rowCount);
-  for(let i = 1; i <= rowTarget; i++) tbody.appendChild(createRowElement(i));
-  rowsData.forEach((r, i) => {
-    const sno = i + 1;
-    $(`desc_row_${sno}`).value = r.desc || '';
-    $(`qty_row_${sno}`).value = r.qty || '';
-    $(`free_row_${sno}`).value = r.freeVal || '';
-    $(`rate_row_${sno}`).value = r.rate || '';
-    calcRow($(`rate_row_${sno}`), false);
+function deleteOrderFromHistory(ordNo){
+  if(!confirm(`Delete Order #${ordNo} from history?`)) return;
+  let history = getLocalOrderHistory();
+  history = history.filter(h => h.orderNo !== ordNo);
+  saveLocalOrderHistory(history);
+  renderOrderHistoryList(filterOrderHistory($('orderHistorySearch').value));
+  logMsg(`Deleted Order #${ordNo} from history.`);
+}
+
+function cycleOrder(dir){
+  const history = getLocalOrderHistory();
+  if(!history.length) return;
+  const currentNo = $('orderNo').value;
+  const idx = history.findIndex(h => h.orderNo === currentNo);
+  let nextIdx = 0;
+  if(idx !== -1){
+    nextIdx = (idx + dir + history.length) % history.length;
+  }
+  loadOrderFromHistory(history[nextIdx]);
+}
+
+function showCustomerSuggestions(type){
+  const nameVal = $('custName').value.trim().toLowerCase();
+  const phoneVal = $('custPhone').value.trim();
+  const box = $('custSuggestBox');
+  if(!box) return;
+
+  const history = getLocalOrderHistory();
+  const matches = history.filter(h => {
+    if(type === 'name' && nameVal) return h.custName && h.custName.toLowerCase().includes(nameVal);
+    if(type === 'phone' && phoneVal) return h.custPhone && h.custPhone.includes(phoneVal);
+    return false;
   });
 
-  paymentRows = (o.paymentAllocations && o.paymentAllocations.length)
-    ? o.paymentAllocations.map(a => ({ receiverIdx: a.receiverIdx != null ? a.receiverIdx : 0, amount: a.amount || null }))
-    : [{ receiverIdx: 0, amount: null }];
-  lastOrderAmountVal = o.orderAmountVal || 0;
-  renderPaymentRows();
+  if(!matches.length){ box.style.display = 'none'; return; }
 
-  scheduleUpdate();
-  isDirty = false; // this content is exactly what's already saved for this order
-  $('btnSave').dataset.state = 'done';
-  setActionLabel('btnSave', '✅', 'Saved');
-  logMsg('Loaded order ' + (o.orderNo || ''));
+  box.innerHTML = '';
+  const seen = new Set();
+  matches.forEach(m => {
+    const key = `${m.custName}_${m.custPhone}`;
+    if(seen.has(key)) return;
+    seen.add(key);
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'suggest-item';
+    btn.textContent = `${m.custName || 'Customer'} (${m.custPhone || 'No phone'})`;
+    btn.onmousedown = () => {
+      $('custName').value = m.custName || '';
+      $('custPhone').value = m.custPhone || '';
+      box.style.display = 'none';
+      scheduleUpdate();
+    };
+    box.appendChild(btn);
+  });
+  box.style.display = 'block';
 }
-// ================== end cloud sync ==================
 
-async function saveOrder(){
-  const btn = $('btnSave');
-  try{
-    const data = await renderOrderImage();
-    if(!validateForSend(data)) return;
-    btn.disabled = true; btn.dataset.state = 'busy';
-    setActionLabel('btnSave', '⏳', 'Saving');
-    if(typeof document.fonts !== 'undefined') await document.fonts.ready;
+function hideCustomerSuggestionsDelayed(){
+  setTimeout(() => { const box = $('custSuggestBox'); if(box) box.style.display = 'none'; }, 200);
+}
 
-    await persistOrderRecord(data); // local save is instant; cloud sync runs in the background
-    isDirty = false;
-
-    const node = $('imageWrap');
-    const blob = await captureBillImageBlob(node, 2.5);
-    if(!blob) throw new Error('Image creation failed.');
-
-    const fileName = `${data.orderNo}-${sanitizeFileName(data.custName)}.png`;
-    await saveImageBlob(blob, fileName, currentOrderId);
-    setActionLabel('btnSave', '✅', 'Saved');
-    btn.dataset.state = 'done'; // stays "Saved" until the form is edited again
-    logMsg('Saved: ' + fileName + ' — syncing to cloud in the background.');
-    btn.disabled = false;
-    return;
-  }catch(e){
-    logMsg('Error: ' + e.message, true);
+async function pickContact(){
+  if('contacts' in navigator && 'select' in navigator.contacts){
+    try {
+      const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: false });
+      if(contacts && contacts[0]){
+        const c = contacts[0];
+        if(c.name && c.name[0]) $('custName').value = c.name[0];
+        if(c.tel && c.tel[0]) $('custPhone').value = c.tel[0].replace(/\D/g, '');
+        scheduleUpdate();
+      }
+    } catch(e){}
+  } else {
+    alert('Contact picker is not supported on this browser/device.');
   }
-  btn.disabled = false; btn.dataset.state = 'idle';
-  resetActionLabel('btnSave');
 }
 
-function resetOrder(){
-  $('custName').value = ''; $('custPhone').value = '';
-  $('phoneHint').textContent = 'Optional — required only to send on WhatsApp';
-  $('phoneHint').className = 'field-hint';
-  paymentRows = [{ receiverIdx: 0, amount: null }];
-  lastOrderAmountVal = 0;
-  currentOrderId = null;
-  
-  randomizeAppreciation();
+window.addEventListener('DOMContentLoaded', () => {
   applyRandomTheme();
-
-  renderPaymentRows();
-  setDefaultDate();
-  orderNoManual = false;
-  $('orderNo').value = deriveOrderNo($('orderDate').value);
-  $('discountVal').value = 0; $('discountLabel').value = ''; $('discountLabel').placeholder = 'Discount';
-  $('discountOp').dataset.op = '-'; $('discountOp').textContent = '−';
+  loadItemsAndReceivers();
   buildRows();
-  logMsg('New order started.');
+  setDefaultDate();
+  refreshOrderNo();
+  renderPaymentRows();
   scheduleUpdate();
-  setTimeout(() => { const first = document.querySelector('#itemsBody tr'); if(first) openItemModal(first); }, 150);
-}
-
-function toggleModal(id, show){ $(id).style.display = show ? 'flex' : 'none'; }
-
-// Defensive reload safeguard: if the page (re)loads and the item rows come
-// up with nothing entered in them, always land on a guaranteed-clean new
-// bill rather than any stale/partial state.
-function ensureFreshBillIfEmpty(){
-  const tbody = $('itemsBody');
-  const anyFilled = tbody && Array.from(tbody.querySelectorAll('input.desc')).some(inp => inp.value.trim() !== '');
-  if(!anyFilled){
-    currentOrderId = null;
-    orderNoManual = false;
-    $('orderNo').value = deriveOrderNo($('orderDate').value);
-    logMsg('Reload detected empty items — starting a new bill.');
-  }
-}
-
-loadItemsAndReceivers();
-randomizeAppreciation(); 
-applyRandomTheme();
-setDefaultDate();
-$('orderNo').value = deriveOrderNo($('orderDate').value);
-renderPaymentRows();
-buildRows();
-ensureFreshBillIfEmpty();
-renderOrderImage();
-setInterval(refreshOrderNo, 60000);
-
-setTimeout(() => { const first = document.querySelector('#itemsBody tr'); if(first) openItemModal(first); }, 250);
+  logMsg('Sree Foundation ordering ready.');
+});
 </script>
 </body>
 </html>
