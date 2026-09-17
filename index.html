@@ -82,6 +82,18 @@
     color:var(--ink); transition:all 0.2s ease; box-shadow:none;
   }
   input:focus, select:focus{outline:none; border-color:var(--primary); border-width:2px; background:linear-gradient(135deg, #fffdf5, #fffdf5);}
+  /* "Pop forward" focus effect: the focused field lifts toward the viewer
+     (scale + rise + soft drop-shadow) as if collecting your input, then
+     eases back flat on blur. Uses transform/filter only (never box-shadow
+     or border, which the field-specific rules above/below already own),
+     so it layers on top of every input's own focus styling without
+     fighting CSS specificity, and the existing "transition:all" on each
+     input's base rule animates it smoothly in both directions. */
+  input:not([type=checkbox]):not([type=radio]):focus, select:focus, textarea:focus{
+    transform:scale(1.07) translateY(-3px);
+    filter:drop-shadow(0 8px 14px rgba(0,0,0,0.28));
+    position:relative; z-index:40;
+  }
   input::placeholder, select option{color:var(--secondary); font-weight:600; opacity:0.7;}
   .row2{display:flex; gap:0; align-items:center;}
   .row2 > input{flex:1; border-radius:var(--radius);}
@@ -368,30 +380,48 @@
     letter-spacing:0.2px; word-break:break-all; overflow-wrap:break-word;
   }
 
-  .buttons-watermark{width:100%; text-align:center; font-size:16px; opacity:0.55; margin-top:0; color:#fff; line-height:1;}
-  .action-buttons{width:100%; display:flex; gap:2px; margin-top:0;}
-  /* Half-height buttons: icon centered as the base layer, label overlaid
-     directly on top of it (same spot, layered via absolute positioning)
-     instead of stacked in two rows. */
+  .action-buttons{width:100%; display:flex; gap:6px; margin-top:0;}
+  /* Professional, "3D curved" pill buttons: a solid eye-catching color per
+     action, a very thin white bezel/border, an inset highlight near the
+     top and a soft inset shadow near the bottom (the two together read as
+     a gently curved/embossed surface rather than a flat rectangle), plus
+     a real drop shadow to lift each button off the page. Icon sits as the
+     base layer and the label overlays directly on top of it, both centered. */
   .action-buttons button{
-    position:relative; flex:1; border:none; border-radius:var(--radius);
-    padding:0; font-family:'Inter',sans-serif; cursor:pointer; color:#fff;
-    box-shadow:none; height:26px; overflow:hidden; display:block;
+    position:relative; flex:1; border:1.5px solid rgba(255,255,255,0.95); border-radius:14px;
+    padding:0; font-family:'Inter',sans-serif; cursor:pointer;
+    height:34px; overflow:hidden; display:block;
+    box-shadow:
+      0 3px 5px rgba(0,0,0,0.22),
+      inset 0 1.5px 0 rgba(255,255,255,0.55),
+      inset 0 -7px 10px rgba(0,0,0,0.16);
+    transition: transform 0.08s ease, box-shadow 0.08s ease;
+  }
+  .action-buttons button:active{
+    transform: translateY(1px) scale(0.96);
+    box-shadow:
+      0 1px 2px rgba(0,0,0,0.22),
+      inset 0 1.5px 0 rgba(255,255,255,0.4),
+      inset 0 -3px 6px rgba(0,0,0,0.2);
   }
   .action-buttons button .ic{
     position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-    font-size:15px; opacity:0.85; line-height:1;
+    font-size:15px; opacity:0.9; line-height:1;
   }
   .action-buttons button .lbl{
     position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
     font-size:9px; font-weight:900; letter-spacing:0.2px; line-height:1;
-    text-shadow:0 1px 2px rgba(0,0,0,0.65), 0 0 5px rgba(0,0,0,0.45);
     padding:0 2px; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    color:#ffffff; text-shadow:0 1px 2px rgba(0,0,0,0.6), 0 0 5px rgba(0,0,0,0.4);
   }
-  #btnPay{background:#f6c515;color:#17202a;}
-  #btnImage{background:#16b978;color:#fff;}
-  #btnSave{background:#ef3f47;color:#fff;}
-  #btnReset{background:#087ff5;color:#fff;}
+  /* One solid, eye-catching color per action — blue / green / yellow / red —
+     each with light-to-dark shading for the curved look. Yellow needs a
+     dark label instead of white for legible contrast. */
+  #btnReset{background:linear-gradient(180deg,#5AA9FF,#1565C0);}
+  #btnPay{background:linear-gradient(180deg,#3DDC84,#1B8A4B);}
+  #btnSave{background:linear-gradient(180deg,#FFD54F,#E8A317);}
+  #btnSave .lbl{color:#3A2A00; text-shadow:0 1px 0 rgba(255,255,255,0.35);}
+  #btnImage{background:linear-gradient(180deg,#FF7A7A,#D32F2F);}
   .action-buttons button:disabled{opacity:0.55; cursor:not-allowed;}
 
   /* A distinct spacer row between the action bar and the live bill preview
@@ -493,7 +523,7 @@
 <div class="editor">
   <div class="row2" style="margin-bottom:0; position:relative;">
     <input type="text" id="custName" tabindex="3" maxlength="20" placeholder="Customer name (max 20)" oninput="scheduleUpdate(); showCustomerSuggestions('name');" onfocus="this.select()" onblur="onCustNameBlur()" onkeydown="handleEnterFocus(event, 'custPhone')">
-    <input type="tel" id="custPhone" tabindex="4" maxlength="13" placeholder="Mobile (13 digits)" style="flex:0 0 130px; border-radius:var(--radius);" oninput="onPhoneInput(); showCustomerSuggestions('phone');" onfocus="this.select()" onblur="hideCustomerSuggestionsDelayed()" onkeydown="handleEnterFocus(event, 'desc_row_1')">
+    <input type="tel" id="custPhone" tabindex="4" maxlength="13" placeholder="Mobile (13 digits)" style="flex:0 0 130px; border-radius:var(--radius);" oninput="onPhoneInput(); showCustomerSuggestions('phone');" onfocus="this.select()" onblur="hideCustomerSuggestionsDelayed(); logPhoneValidation();" onkeydown="handleEnterFocus(event, 'desc_row_1')">
     <button type="button" class="pick-btn" tabindex="-1" title="Contacts" onclick="pickContact()">📇</button>
     <div id="custSuggestBox" class="suggest-box" style="display:none;"></div>
   </div>
@@ -537,12 +567,11 @@
   <div id="paymentQrPreview" class="payment-qr-preview"></div>
 </div>
 
-<div class="buttons-watermark">💧</div>
 <div class="action-buttons">
-  <button id="btnReset" tabindex="500" onclick="resetOrder()">🔄 New Bill</button>
+  <button id="btnReset" tabindex="500" onclick="resetOrder()"><span class="ic">🔄</span><span class="lbl">New Bill</span></button>
   <button id="btnPay" tabindex="501" onclick="sendPayment()"><span class="ic">💰</span><span class="lbl">WA Pay</span></button>
-  <button id="btnSave" tabindex="502" onclick="saveOrder()">💾 Save Bill</button>
-  <button id="btnImage" tabindex="503" onclick="saveAndSendImage()">🖼️ WA Image</button>
+  <button id="btnSave" tabindex="502" onclick="saveOrder()"><span class="ic">💾</span><span class="lbl">Save Bill</span></button>
+  <button id="btnImage" tabindex="503" onclick="saveAndSendImage()"><span class="ic">🖼️</span><span class="lbl">WA Image</span></button>
 </div>
 
 <div class="action-image-divider"></div>
@@ -759,13 +788,13 @@ function fitTextToWidth(el, maxPx, minPx){
 
 // ---- Rounded corners + thin white bezel for the exported PNG ----
 // Composites the raw html2canvas capture onto a new canvas: a soft drop
-// shadow first (lifts the card off the background for a curved/3D feel),
-// then a solid-white rounded-rect bezel with a faint vertical sheen
-// (suggests a gently curved, glossy surface rather than a flat rectangle),
-// then the captured content drawn inset and clipped to a matching, smaller
-// rounded rect on top. bezelPx/radiusPx/shadowBlurPx are in *output* pixels
-// (already at html2canvas's capture scale), so they stay visually
-// consistent regardless of export scale.
+// ---- Rounded corners + thin white bezel for the exported PNG ----
+// Composites the raw html2canvas capture onto a new canvas: a solid-white
+// rounded-rect bezel with the captured content drawn inset and clipped to
+// a matching, slightly smaller rounded rect on top. No shadow/sheen — the
+// output canvas is exactly the card's own size, so content fills the PNG
+// right to its edges. bezelPx/radiusPx are in *output* pixels (already at
+// the capture scale), so they stay visually consistent at any resolution.
 function roundedRectPath(ctx, x, y, w, h, r){
   const rr = Math.max(0, Math.min(r, w / 2, h / 2));
   ctx.beginPath();
@@ -778,53 +807,31 @@ function roundedRectPath(ctx, x, y, w, h, r){
 }
 function applyRoundedBezel(sourceCanvas, bezelPx, radiusPx){
   const w = sourceCanvas.width, h = sourceCanvas.height;
-  const shadowBlur = Math.round(radiusPx * 1.15);
-  const shadowOffsetY = Math.round(radiusPx * 0.4);
   const cardW = w + bezelPx * 2, cardH = h + bezelPx * 2;
-  const outW = cardW + shadowBlur * 2;
-  const outH = cardH + shadowBlur * 2 + shadowOffsetY;
-  const cardX = shadowBlur, cardY = shadowBlur;
   const out = document.createElement('canvas');
-  out.width = outW; out.height = outH;
+  out.width = cardW; out.height = cardH;
   const ctx = out.getContext('2d');
-
-  // Soft shadow beneath the card
-  ctx.save();
-  ctx.shadowColor = 'rgba(20,20,20,0.32)';
-  ctx.shadowBlur = shadowBlur;
-  ctx.shadowOffsetY = shadowOffsetY;
-  roundedRectPath(ctx, cardX, cardY, cardW, cardH, radiusPx);
+  roundedRectPath(ctx, 0, 0, cardW, cardH, radiusPx);
   ctx.fillStyle = '#ffffff';
   ctx.fill();
-  ctx.restore();
-
-  // Faint top-to-bottom sheen across the bezel — reads as a gentle curve
-  // catching light, rather than a flat painted border.
   ctx.save();
-  roundedRectPath(ctx, cardX, cardY, cardW, cardH, radiusPx);
+  roundedRectPath(ctx, bezelPx, bezelPx, w, h, Math.max(0, radiusPx - bezelPx));
   ctx.clip();
-  const sheen = ctx.createLinearGradient(cardX, cardY, cardX, cardY + cardH);
-  sheen.addColorStop(0, '#ffffff');
-  sheen.addColorStop(0.5, '#f1f3f4');
-  sheen.addColorStop(1, '#ffffff');
-  ctx.fillStyle = sheen;
-  ctx.fillRect(cardX, cardY, cardW, cardH);
+  ctx.drawImage(sourceCanvas, bezelPx, bezelPx);
   ctx.restore();
-
-  // Content, inset by the bezel and clipped to a matching, slightly
-  // smaller rounded rect
-  ctx.save();
-  roundedRectPath(ctx, cardX + bezelPx, cardY + bezelPx, w, h, Math.max(0, radiusPx - bezelPx));
-  ctx.clip();
-  ctx.drawImage(sourceCanvas, cardX + bezelPx, cardY + bezelPx);
-  ctx.restore();
-
   return out;
 }
 // Capture #imageWrap and return a PNG blob with the rounded-corner/white-bezel
-// treatment already baked in. scale must match whatever html2canvas is
-// asked to render at, so the bezel/radius stay visually consistent.
-async function captureBillImageBlob(node, scale){
+// treatment baked in. Output width is pinned to TARGET_IMAGE_WIDTH_PX
+// (1080 — a 9:16/1080p-style reference width) regardless of the device's
+// actual viewport, by scaling html2canvas's capture accordingly; height is
+// whatever the bill's own content requires (it simply grows/shrinks with
+// the number of items, receivers, QR codes etc.) — never cropped or padded
+// to a fixed height.
+const TARGET_IMAGE_WIDTH_PX = 1080;
+async function captureBillImageBlob(node){
+  const cssWidth = node.getBoundingClientRect().width || node.offsetWidth || 1;
+  const scale = TARGET_IMAGE_WIDTH_PX / cssWidth;
   const raw = await html2canvas(node, { scale, backgroundColor:null, useCORS:true, allowTaint:true });
   const finished = applyRoundedBezel(raw, Math.round(2 * scale), Math.round(18 * scale));
   return await new Promise(resolve => finished.toBlob(resolve, 'image/png'));
@@ -1042,6 +1049,15 @@ function onPhoneInput(){
   else { hint.textContent = `Enter a valid mobile number (${digits.length} digits)`; hint.className = 'field-hint warn'; }
   scheduleUpdate();
 }
+// Logged once on blur (not every keystroke) so the phone field's
+// validation outcome joins the activity log without flooding it.
+function logPhoneValidation(){
+  const el = $('custPhone'); if(!el) return;
+  const digits = el.value.replace(/\D/g,'');
+  if(!digits.length) return; // empty is fine — optional field, nothing to validate
+  if(normalizePhone(el.value)) logMsg('Phone number valid: ' + el.value);
+  else logMsg(`Phone number invalid — ${digits.length} digit(s), need 10 (or 12/13 with country code).`, true);
+}
 
 let paymentRows = [{ receiverIdx: 0, amount: null }];
 let lastOrderAmountVal = 0, activePayRowModalIdx = null;
@@ -1181,15 +1197,18 @@ function onPaymentAmountBlur(idx) {
   if (!row) return;
 
   if (!row.amount || isNaN(row.amount)) {
-    if (paymentRows.length > 1) paymentRows.splice(idx, 1);
-    else { row.amount = lastOrderAmountVal; row.receiverIdx = 0; }
+    if (paymentRows.length > 1) { paymentRows.splice(idx, 1); logMsg(`Payment row ${idx + 1}: empty amount removed.`, true); }
+    else { row.amount = lastOrderAmountVal; row.receiverIdx = 0; logMsg(`Payment row ${idx + 1}: empty amount reset to order total.`, true); }
     renderPaymentRows();
     scheduleUpdate();
     return;
   }
 
   const remainingOther = getRemainingBalance(idx);
-  if (row.amount > remainingOther) row.amount = remainingOther;
+  if (row.amount > remainingOther) {
+    logMsg(`Payment row ${idx + 1}: amount reduced to ${inr(remainingOther)} to avoid over-allocating.`, true);
+    row.amount = remainingOther;
+  }
 
   renderPaymentRows();
   scheduleUpdate();
@@ -1304,6 +1323,11 @@ function openItemModal(target){
 // auto-expansion and totals recalculation just like a modal pick does.
 function handleDescCommit(el){
   const row = toRow(el);
+  const qty = parseFloat(row.querySelector('.qty').value) || 0;
+  const rate = parseFloat(row.querySelector('.rate').value) || 0;
+  if(!el.value.trim() && (qty > 0 || rate > 0)){
+    logMsg(`Row ${rowSerial(row)}: quantity/rate entered but description is blank.`, true);
+  }
   checkRowExpansion(row);
   scheduleUpdate();
 }
@@ -2321,7 +2345,7 @@ async function runBillAndImageFlow(btnId, buildWaUrl){
       setActionLabel(btnId, '⏳', 'Saving image');
       if(typeof document.fonts !== 'undefined') await document.fonts.ready;
       const node = $('imageWrap');
-      const blob = await captureBillImageBlob(node, 2.5);
+      const blob = await captureBillImageBlob(node);
       if(!blob) throw new Error('Image creation failed.');
       const fileName = `${data.orderNo}-${sanitizeFileName(data.custName)}.png`;
       await saveImageBlob(blob, fileName, currentOrderId);
@@ -2680,6 +2704,7 @@ function loadOrderFromCloud(id){
   isDirty = false; // this content is exactly what's already saved for this order
   $('btnSave').dataset.state = 'done';
   setActionLabel('btnSave', '✅', 'Saved');
+  applyRandomTheme(); // cycle the color theme so a loaded bill is visually distinct from the last
   logMsg('Loaded order ' + (o.orderNo || ''));
 }
 // ================== end cloud sync ==================
@@ -2697,7 +2722,7 @@ async function saveOrder(){
     isDirty = false;
 
     const node = $('imageWrap');
-    const blob = await captureBillImageBlob(node, 2.5);
+    const blob = await captureBillImageBlob(node);
     if(!blob) throw new Error('Image creation failed.');
 
     const fileName = `${data.orderNo}-${sanitizeFileName(data.custName)}.png`;
