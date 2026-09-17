@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SREE FOUNDATION — Ordering</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Inter:wght@500;700;800;900&family=Noto+Sans+Tamil:wght@600&family=Roboto+Mono:wght@700&family=Great+Vibes&display=swap" rel="stylesheet" crossorigin="anonymous">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script type="module">
+  // ── Firebase (Firestore) — cloud sync for saved orders & customers ──
+  // No sign-in is used, so Firestore Security Rules must allow open
+  // read/write on the "orders" and "customers" collections, e.g.:
+  //   match /orders/{id}    { allow read, write: if true; }
+  //   match /customers/{id} { allow read, write: if true; }
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+  import {
+    getFirestore, collection, doc, setDoc, deleteDoc, getDocs, getDoc, onSnapshot,
+    query, orderBy, limit, enableIndexedDbPersistence
+  } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAtH3LTuNFUiPS7Kd5NF3YEg40pyXEI49A",
+    authDomain: "sree-foundation-order-app.firebaseapp.com",
+    projectId: "sree-foundation-order-app",
+    storageBucket: "sree-foundation-order-app.firebasestorage.app",
+    messagingSenderId: "289204055794",
+    appId: "1:289204055794:web:6a85cb0e10d3a6c9aaaa6b"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  // Local cache so save/load/search keep working offline; queued writes
+  // flush automatically once the connection returns.
+  enableIndexedDbPersistence(db).catch(() => {});
+
+  window.FB = { db, collection, doc, setDoc, deleteDoc, getDocs, getDoc, onSnapshot, query, orderBy, limit };
+  window.dispatchEvent(new Event('firebase-ready'));
+</script>
+<style>
+  :root{
+    --primary:#0B5E64; --primary-light:#E7F6F6; --secondary:#128C94; --accent:#FF9F1C; --bg-main:#EEF7F7;
+    --shadow-color:rgba(11,94,100,0.35); --ink:#16262A; --danger:#c0392b; --white:#ffffff;
+    --row-1:#FFE5B4; --row-2:#B4E7FF; --row-3:#E5FFB4; --row-4:#FFB4E5; --row-5:#F5B4FF; --row-6:#FFE5CC;
+    --row-subtotal:#FFD34D;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; padding:0; background:linear-gradient(180deg,var(--primary) 0%, var(--bg-main) 38%);
+    font-family:'Inter',sans-serif; color:var(--ink); min-height:100vh; display:flex; flex-direction:column; align-items:center;
+    font-size:16px;
+  }
+  
+  .topbar{width:100%; display:flex; justify-content:space-between; align-items:center; gap:0; margin-bottom:0; position:relative;}
+  .tb-side{display:flex; flex-direction:column; align-items:flex-start; flex:0 0 auto;}
+  .tb-side.tb-right{align-items:flex-end;}
+  .tb-side input{border:none; border-radius:var(--radius); padding:6px; font-size:14px; font-weight:800; background:rgba(255,255,255,0.95); color:var(--ink); cursor:pointer;}
+  
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    background: transparent; bottom: 0; color: transparent; cursor: pointer; height: auto; left: 0; position: absolute; right: 0; top: 0; width: auto;
+  }
+
+  #orderDate{width:12ch;}
+  #orderNo{width:6ch; text-align:right;}
+  .ordnav{display:flex; align-items:center; gap:2px;}
+  .ordnav-btn{border:none; border-radius:var(--radius); background:rgba(255,255,255,0.95); color:var(--primary); font-weight:900; font-size:16px; line-height:1; padding:6px 8px; cursor:pointer;}
+  .ordnav-btn:active{transform:scale(0.9);}
+  .tb-company{flex:1; text-align:center; color:#fff; font-family:'Baloo 2',sans-serif; font-weight:800; font-size:20px; letter-spacing:0.2px; text-shadow:1px 1px 0 rgba(0,0,0,0.2); padding:0 4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  #helpBtn{position:relative; top:unset; left:unset; transform:unset; background:var(--accent); color:#1a1200; border:none; border-radius:var(--radius); padding:6px 14px; font-weight:800; font-size:12px; cursor:pointer; z-index:10; white-space:nowrap; display:flex; align-items:center; gap:4px; margin:0 auto;}
+
+  .editor{width:100%; background:var(--white); border-radius:0; padding:0; box-shadow:none; border:none; display:flex; flex-wrap:wrap;}
+  .editor > * {flex-basis: 100%;}
+  /* Viewing mode: the entire bill is locked read-only (fields genuinely
+     disabled in JS, not just visually) until "Edit" is tapped. */
+  .editor.locked{ opacity:0.68; filter:grayscale(0.2); }
+  .editor.locked *{ cursor:not-allowed !important; }
+  label{font-size:12px; text-transform:uppercase; letter-spacing:0.4px; color:var(--primary); font-weight:800; display:block; margin:4px 0 2px;}
+  .field-hint{font-size:11px; color:#5a6b6d; margin:0; line-height:1.2; font-weight:600;}
+  .field-hint.ok{color:#1a7d3a; font-weight:800;}
+  .field-hint.warn{color:var(--danger); font-weight:800;}
+  input[type=text], input[type=tel], input[type=date], input[type=number], select{
+    width:100%; border:2px solid var(--accent); border-radius:var(--radius); padding:6px 8px; font-size:16px; font-weight:700;
+    font-family:'Inter',sans-serif; background:linear-gradient(135deg, rgba(255,255,255,0.98), rgba(255,255,255,0.95)); 
+    color:var(--ink); transition:all 0.2s ease; box-shadow:none;
+  }
+  input:focus, select:focus{outline:none; border-color:var(--primary); border-width:2px; background:linear-gradient(135deg, #fffdf5, #fffdf5);}
+  /* "Pop forward" focus effect: the focused field lifts toward the viewer
+     (scale + rise + soft drop-shadow) as if collecting your input, then
+     eases back flat on blur. Uses transform/filter only (never box-shadow
+     or border, which the field-specific rules above/below already own),
+     so it layers on top of every input's own focus styling without
+     fighting CSS specificity, and the existing "transition:all" on each
+     input's base rule animates it smoothly in both directions. */
+  input:not([type=checkbox]):not([type=radio]):focus, select:focus, textarea:focus{
+    transform:scale(1.07) translateY(-3px);
+    filter:drop-shadow(0 8px 14px rgba(0,0,0,0.28));
+    position:relative; z-index:40;
+  }
+  input::placeholder, select option{color:var(--secondary); font-weight:600; opacity:0.7;}
+  .row2{display:flex; gap:0; align-items:center;}
+  .row2 > input{flex:1; border-radius:var(--radius);}
+
+  .suggest-box{position:absolute; top:100%; left:0; right:34px; background:#fff; border:1.5px solid var(--secondary); border-radius:var(--radius); box-shadow:0 4px 10px rgba(0,0,0,0.18); z-index:30; max-height:190px; overflow-y:auto; margin-top:2px;}
+  .suggest-item{display:block; width:100%; text-align:left; background:#fff; border:none; border-bottom:1px solid #eee; padding:8px 10px; font-size:13px; font-weight:700; color:var(--ink); cursor:pointer;}
+  .suggest-item:last-child{border-bottom:none;}
+  .suggest-item:hover, .suggest-item:active{background:var(--primary-light);}
+
+  .order-hist-row{display:flex; align-items:stretch; gap:0; margin-bottom:1px;}
+  .order-hist-btn{flex:1; min-width:0; display:flex; align-items:center; gap:6px; text-align:left; font-family:'Roboto Mono',monospace; font-size:14px; font-weight:700; border:1.5px solid #d8e6e6; border-right:none; border-radius:5px 0 0 5px; padding:9px 8px; background:#F2F9F9; color:var(--ink); cursor:pointer;}
+  .order-hist-btn:active{transform:scale(0.99);}
+  .ohr-date{flex:0 0 6ch; white-space:nowrap; color:var(--primary); font-weight:900;}
+  .ohr-name{flex:0 0 14ch; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .ohr-item{flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#5a6b6d; font-weight:600;}
+  .ohr-amt{flex:0 0 7ch; text-align:right; font-weight:900; color:var(--primary);}
+  .order-hist-del{flex:0 0 auto; border:1.5px solid var(--danger); border-radius:0 5px 5px 0; background:#FDECEA; color:var(--danger); font-weight:900; font-size:16px; padding:0 14px; cursor:pointer;}
+
+  table.items{width:100%; border-collapse:collapse; border-spacing:0; margin-top:0; font-size:14px; table-layout:fixed;}
+  table.items thead th{background:var(--primary); color:#fff; padding:6px 2px; font-size:13px; text-transform:uppercase; font-weight:800;}
+  table.items thead th:first-child{border-radius:0;}
+  table.items thead th:last-child{border-radius:0;}
+  table.items td{border:1px solid #d8e6e6; padding:2px 1px; text-align:center; vertical-align:middle;}
+  
+  table.items tbody tr:nth-child(6n+1) td{background:var(--row-1);}
+  table.items tbody tr:nth-child(6n+2) td{background:var(--row-2);}
+  table.items tbody tr:nth-child(6n+3) td{background:var(--row-3);}
+  table.items tbody tr:nth-child(6n+4) td{background:var(--row-4);}
+  table.items tbody tr:nth-child(6n+5) td{background:var(--row-5);}
+  table.items tbody tr:nth-child(6n+0) td{background:var(--row-6);}
+  
+  /* Widths proportional to field character widths: Sr.No 1, Description 25, Qty 5, Free 3, Rate 6, Amount 7 (47 total) — Qty/Free/Rate then widened 20% further, taken from Description */
+  table.items th:nth-child(1), table.items td:nth-child(1){width:2.13%;}
+  table.items th:nth-child(2), table.items td:nth-child(2){width:47.23%;}
+  table.items th:nth-child(3), table.items td:nth-child(3){width:12.77%;}
+  table.items th:nth-child(4), table.items td:nth-child(4){width:7.66%;}
+  table.items th:nth-child(5), table.items td:nth-child(5){width:15.32%;}
+  table.items th:nth-child(6), table.items td:nth-child(6){width:14.89%;}
+  
+  input.desc, input.qty, input.free-qty, input.rate{width:100%; min-width:0; box-sizing:border-box; font-size:14px; padding:4px 2px; text-align:center; font-weight:800; border:1px solid rgba(255,165,0,0.3); border-radius:var(--radius); background:rgba(255,255,255,0.9); transition:all 0.2s;}
+  input.desc{text-align:left; padding-left:4px; border-color:var(--accent);}
+  input.qty, input.rate{border-color:var(--secondary);}
+  input.free-qty{color:#1a7d3a; font-weight:900; border-radius:var(--radius); border-color:#52B788; background:rgba(229,255,180,0.4);}
+  input.free-qty::placeholder{color:#9fdcae; font-weight:700;}
+  input.desc:focus, input.qty:focus, input.rate:focus{outline:none; border-color:var(--primary); border-width:2px; background:#fffdf5; box-shadow:none;}
+  input.free-qty:focus{outline:none; border-color:#1a7d3a; border-width:2px; background:rgba(229,255,180,0.6); box-shadow:none;}
+  input.tap-field{cursor:pointer; font-weight:800; border-radius:var(--radius); border:1px solid var(--secondary);}
+  input.tap-field::placeholder{color:var(--secondary); font-weight:700;}
+  
+  td.sno{font-weight:900; color:var(--primary); font-size:13px;}
+  td.amount{font-family:'Roboto Mono',monospace; font-weight:900; font-size:14px;}
+
+  .pay-row{display:flex; gap:0; align-items:center; margin-bottom:0; width:100%;}
+  .pay-method{flex:1; text-align:left; padding:8px; border:1px solid #d8e6e6; border-radius:var(--radius); font-weight:800; cursor:pointer; font-size:13px; font-family:'Inter',sans-serif; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition:all 0.2s; background:#fff;}
+  .pay-method.unselected{color:#9a9a9a; font-style:italic; opacity:0.7;}
+  .pay-amount{width:90px; flex:0 0 90px; border-radius:var(--radius) !important; font-family:'Roboto Mono',monospace; font-size:14px; font-weight:800; text-align:right; color:var(--primary); padding:6px;}
+
+  .pay-row-0 .pay-method{ background:linear-gradient(135deg, #CAF0F8, #E8F8F5); border-color:#90E0EF; color:#0077B6; }
+  .pay-row-1 .pay-method{ background:linear-gradient(135deg, #FFFBEA, #FFE5B4); border-color:#FFD700; color:#B8860B; }
+  .pay-row-2 .pay-method{ background:linear-gradient(135deg, #F3E5AB, #FFE5B4); border-color:#FF9F1C; color:#FF6B35; }
+  .pay-row-3 .pay-method{ background:linear-gradient(135deg, #E0BBE4, #F5B4FF); border-color:#C77DFF; color:#6A0572; }
+
+  .discount-row{display:flex; align-items:stretch; gap:0; margin-top:0;}
+  #discountLabel{flex:1; border:2px solid var(--accent); border-radius:var(--radius); padding:6px 8px; font-weight:800; background:linear-gradient(135deg, rgba(255,255,255,0.98), rgba(255,255,255,0.95)); color:var(--ink); display:flex; align-items:center; font-size:14px;}
+  #discountOp{border:none; background:linear-gradient(135deg, var(--secondary), var(--primary)); color:#fff; width:36px; height:auto; border-radius:var(--radius); font-size:20px; font-weight:800; cursor:pointer; flex:0 0 36px; display:flex; align-items:center; justify-content:center;}
+  #discountVal{flex:0 0 70px; width: 70px; border-radius:var(--radius); font-family:'Roboto Mono',monospace; text-align:right; border:2px solid var(--accent); padding:6px; font-weight:800; font-size:14px; background:linear-gradient(135deg, rgba(255,255,255,0.98), rgba(255,255,255,0.95)); color:var(--primary);}
+
+  .add-pay-btn{width:100%; padding:8px; background:linear-gradient(135deg, var(--primary-light), var(--bg-main)); border:1.5px dashed var(--primary); color:var(--primary); font-weight:800; font-size:13px; border-radius:var(--radius); cursor:pointer; margin-bottom:0;}
+
+  .totals{margin-top:0; font-size:14px;}
+  .trow{display:flex; justify-content:space-between; padding:2px 0; border-bottom:1px dashed #d8e6e6;}
+  .trow.grand{border-bottom:none; border-top:none; margin-top:0; padding:0; background:var(--primary-light); border-radius:var(--radius); border: 2px solid var(--primary); overflow:hidden;}
+  
+  .trow.grand { display: flex; align-items: stretch; justify-content: space-between; }
+  .trow.grand .amount-words-container { flex: 1; text-align: left; padding:6px 8px; font-size: 13px; font-weight: 900; color: var(--primary); display:flex; align-items:center; }
+  .trow.grand span:last-child{font-size:20px; font-weight:900; color:#fff; flex: 0 0 auto; text-align: right; background: var(--primary); padding: 2px 8px; border:none; border-left:2px solid var(--primary); display:flex; align-items:center; text-shadow:1px 2px 2px rgba(0,0,0,0.5); }
+
+  .words{background:var(--primary-light); border-radius:var(--radius); padding:4px 6px; font-size:12px; margin-top:0; line-height:1.2; display: none;}
+  .words b{display:block; font-size:11px; text-transform:uppercase; color:var(--primary); font-weight:900;}
+
+  .opt{font-size:12px; text-transform:none; letter-spacing:0; color:#5a6b6d; font-weight:700;}
+  .payment-qr-preview{display:flex; flex-wrap:wrap; gap:0; justify-content:center; margin-top:0;}
+  .payment-qr-preview .qr-block{text-align:center; background:var(--primary-light); border-radius:var(--radius); padding:6px;}
+
+  .image-wrap{
+    width:100%; margin-top:0; border-radius:0;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.10);
+    overflow:hidden; background:#ffffff; padding:0; box-sizing:border-box;
+  }
+  #orderImage{
+    width:100%; background:#fff; font-family:'Inter',sans-serif; color:var(--ink); 
+    border:none; outline:none; margin:0; padding:0; overflow:hidden; box-sizing:border-box;
+    border-radius:0;
+  }
+
+  .order-header{display:flex; align-items:center; justify-content:space-between; background:linear-gradient(120deg,var(--primary),var(--secondary)); color:#fff; padding:10px; width:100%; box-sizing:border-box;}
+  .oh-date, .oh-no{flex:0 0 auto; white-space:nowrap; font-size:12px; font-weight:700; opacity:0.95; text-align:center; line-height:1.25;}
+  .oh-no{text-align:left;}
+  .oh-date{text-align:right;}
+  .oh-lbl{font-size:9px; text-transform:uppercase; letter-spacing:0.5px; font-weight:700; opacity:0.85;}
+  .oh-val{font-size:13px; font-weight:900; font-family:'Roboto Mono',monospace; letter-spacing:0.3px;}
+  .oh-company{flex:1 1 auto; text-align:center; width:100%; min-width:0; padding:0;}
+  /* Company name/address always stay on one line — actual font size is set
+     per-render by fitTextToWidth() in JS, using the largest size (up to
+     these maximums) that fits the available width without wrapping. */
+  .oh-name{font-family:'Baloo 2',sans-serif; font-size:24px; font-weight:800; letter-spacing:0.3px; line-height:1.1; text-shadow:1px 1px 0 rgba(0,0,0,0.22); white-space:nowrap; overflow:hidden;}
+  .oh-addr{font-size:12px; opacity:0.95; font-weight:600; white-space:nowrap; overflow:hidden;}
+
+  .order-to{display:flex; justify-content:space-between; align-items:center; padding:4px 0; font-size:13px; box-sizing:border-box; background: var(--primary-light); margin: 0; border-radius: 0;}
+  .order-to .lbl{font-size:10px; text-transform:uppercase; letter-spacing:0.5px; color:var(--primary); font-weight:800; display:inline-block; margin-right: 4px;}
+  .order-to strong{font-size:13px;}
+  .order-to .ph{color:#5a6b6d; font-size:13px; font-weight:700;}
+
+  table.it{width:100%; border-collapse:collapse; margin:0; font-size:13px; box-sizing:border-box;}
+  table.it thead th{background:var(--primary); color:#fff; padding:6px 2px; font-size:13px; text-transform:uppercase; font-weight:800;}
+  table.it td{border:1px solid #d8e6e6; padding:4px 2px; text-align:center; font-weight:700;}
+  table.it td.d{text-align:left;}
+  table.it td.empty{color:#94a4a5; font-style:italic;}
+  .img-item-name{font-weight:800;}
+  .img-free-lbl{font-size:12px; color:#1a7d3a; font-weight:900;}
+
+  .ift{margin:0; font-size:14px; box-sizing:border-box;}
+  .ift .row{display:flex; justify-content:space-between; padding:2px 0; border-bottom:1px dashed #d8e6e6; font-weight:700;}
+  /* Subtotal row (table footer) gets rounded end-caps */
+  .subtotal-row td:first-child{border-radius:var(--radius) 0 0 var(--radius);}
+  .subtotal-row td:last-child{border-radius:0 var(--radius) var(--radius) 0;}
+  /* Grand total row: the amount chip stretches to the row's full height and
+     shares its border, so the chip's top/bottom edges coincide exactly with
+     the row's own edges (matching the rounded subtotal row above it) —
+     no floating gap, no doubled border. */
+  .ift .row.grand{
+    border-bottom:none; border-top:none; margin-top:0; padding:0; font-weight:900;
+    display:flex; align-items:stretch; justify-content:space-between;
+    background:var(--primary-light); border:2px solid var(--primary); border-radius:var(--radius);
+    overflow:hidden; box-sizing:border-box;
+  }
+  .ift .row.grand .amount-words-container{ flex:1; text-align:left; padding:8px 8px; font-size:13px; font-weight:900; color:var(--primary); display:flex; align-items:center; }
+  .ift .row.grand span:last-child{
+    color:#fff;
+    font-size:22px;
+    font-weight:900;
+    flex:0 0 auto;
+    min-width:7ch;
+    text-align:right;
+    font-family:'Roboto Mono', monospace;
+    background:var(--primary);
+    padding:0 12px;
+    border-radius:0;
+    text-shadow:1px 2px 2px rgba(0,0,0,0.5), -1px -1px 0 rgba(255,255,255,0.15);
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    border:none;
+    border-left:2px solid var(--primary);
+    letter-spacing:0.5px;
+    align-self:stretch;
+  }
+  .qty-total{font-size:13px; font-weight:700; color:#5a6b6d;}
+  .ift .words{background:var(--primary-light); border-radius:var(--radius); padding:6px 8px; font-size:12px; margin:0; line-height:1.3; display: none;}
+
+  /* Payment methods block (final bill) — rounded container, one coloured
+     row per payment method: row number + name + 2-space gap + UPI id.
+     No URL is ever displayed — the UPI deep-link is only used internally
+     for the QR code and the WhatsApp payment message. */
+  .pay-breakdown{background:transparent; border-radius:var(--radius); padding:0; margin-top:0; line-height:1.3; box-sizing:border-box;}
+  .pay-breakdown b{display:block; font-size:11px; text-transform:uppercase; color:var(--primary); margin-bottom:4px; font-weight:900; letter-spacing:0.4px;}
+  .pb-row{display:flex; align-items:center; gap:6px; padding:5px 8px; font-weight:800; border-radius:var(--radius); margin-bottom:4px; box-sizing:border-box;}
+  .pb-row:last-child{margin-bottom:0;}
+  .pb-num{flex:0 0 auto; width:16px; height:16px; border-radius:50%; background:rgba(255,255,255,0.65); display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900;}
+  .pb-info{flex:1; min-width:0; text-align:left;}
+  .pb-line1{font-size:12px; font-weight:900; line-height:1.3; overflow-wrap:break-word; word-break:break-word;}
+  .pb-amt{flex:0 0 auto; font-family:'Roboto Mono',monospace; font-weight:900; font-size:13px; white-space:nowrap;}
+  .pmb-0{ background:linear-gradient(135deg, #CAF0F8, #E8F8F5); color:#0077B6; }
+  .pmb-1{ background:linear-gradient(135deg, #FFFBEA, #FFE5B4); color:#B8860B; }
+  .pmb-2{ background:linear-gradient(135deg, #F3E5AB, #FFE5B4); color:#FF6B35; }
+  .pmb-3{ background:linear-gradient(135deg, #E0BBE4, #F5B4FF); color:#6A0572; }
+
+  .ty {
+    text-align: center; padding: 6px 0; margin-top: 0; display: flex; align-items: center; justify-content: center; gap: 4px; width: 100%; box-sizing: border-box;
+  }
+  .ty .fancy-text {
+    font-family: 'Great Vibes', cursive; color: var(--primary); font-weight: normal; display: -webkit-box;
+    -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; line-height: 1.15; word-break: break-word; text-align: center;
+  }
+  .ty .ty-emojis { font-size: 14px; white-space: nowrap; flex-shrink: 0; }
+
+  /* ===== QR PARTITION GRID =====
+     Layout is derived entirely from QR count. Partitions are created first
+     (via grid-template-areas), then QR codes are generated into their
+     already-sized partition. gap:0 everywhere — no gutters between partitions.
+     Row height is driven by the square QR wrapper (aspect-ratio:1/1), so the
+     grid always stays fully occupied with no dead space. */
+  .grid-container{
+    display:grid; gap:0; padding:0;
+    background:transparent; width:100%; max-width:100%; box-sizing:border-box;
+    margin:0;
+  }
+  /* 1 QR code: side by side — left = instructions, right = the QR */
+  .grid-container.qr-count-1{
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    grid-template-rows: auto;
+    grid-template-areas: "instr qr1";
+  }
+  /* 2 QR codes: left = instructions (spans full height), right column
+     splits into 2 equal stacked QR partitions */
+  .grid-container.qr-count-2{
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    grid-template-rows: auto auto;
+    grid-template-areas: "instr qr1" "instr qr2";
+  }
+  /* 3 QR codes: 2x2 grid — instructions occupy only the first cell */
+  .grid-container.qr-count-3{
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    grid-template-rows: auto auto;
+    grid-template-areas: "instr qr1" "qr2 qr3";
+  }
+  /* extensibility fallback for >3 (not part of the 0/1/2/3 spec, but keeps
+     things from breaking if a 4th UPI receiver is ever added) */
+  .grid-container.qr-count-4plus{
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    grid-template-rows: auto auto auto;
+    grid-template-areas: "instr instr" "qr1 qr2" "qr3 qr4";
+  }
+  .grid-cell{
+    background:#ffffff; border:1px solid var(--primary);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:3px; text-align:center; box-sizing:border-box;
+    min-width:0; min-height:0; position:relative; overflow:hidden;
+  }
+  /* Instructions cell: no padding/margin/gaps — the text fills and fits
+     the cell exactly (see fitBoxText in JS), so reclaiming every pixel of
+     the partition for the text keeps it as large/readable as possible. */
+  .grid-cell.instruction{ border-style:dashed; padding:0; }
+  /* Instruction image (replaces the text block when CONFIG.scanNoteImage
+     is set): fills the cell edge-to-edge, preserving its own aspect ratio
+     rather than stretching. */
+  .scan-note-image{ width:100%; height:100%; object-fit:contain; display:block; }
+  .scan-note-grid{
+    justify-content:center; text-align:center; display:flex; flex-direction:column; gap:0;
+    padding:0; background:transparent;
+    width:100%; height:100%; box-sizing:border-box; margin:0;
+    align-items:center; overflow:hidden;
+    font-size:15px; /* dynamic base size — set by fitBoxText() in JS each render */
+  }
+  /* Lines size relative to the container's font-size (em) rather than a
+     fixed px value, so fitBoxText can scale English+Tamil together as one
+     unit — keeps their relative proportions professional at any size, and
+     re-adapts automatically whenever the stored instruction text changes
+     (shorter/longer wording, more/fewer lines). Wrapping is allowed so
+     longer text fills the box across lines instead of overflowing. */
+  .scan-note-grid p{
+    margin:0; line-height:1.22;
+    padding:0; border-radius:0; width:100%; box-sizing:border-box;
+    font-weight:900; background:none; text-shadow:none;
+    overflow-wrap:break-word; word-break:break-word; text-align:center;
+    text-wrap:balance;
+  }
+  /* Plain, professional 'Inter' for the English lines (was the decorative
+     display font, which was hard to read at small sizes); Tamil line keeps
+     its dedicated script font, sized slightly smaller relative to English
+     to match natural glyph proportions. */
+  .scan-note-grid p.en{font-family:'Inter',sans-serif; font-weight:800; color:var(--primary); letter-spacing:0.1px; font-size:1em;}
+  .scan-note-grid p.ta{font-family:'Noto Sans Tamil',sans-serif; font-weight:700; color:var(--primary); font-size:0.9em;}
+
+  /* QR cell: the square wrap drives the row height (width == height), so the
+     QR is always the maximum size that fits its partition. The meta label
+     is an absolutely-positioned overlay and consumes no grid track space. */
+  /* QR cell: flex column — the square wrap fills the full partition width
+     (and drives its own height via aspect-ratio), so the QR pattern is
+     never obstructed by anything on top of it. The caption is a separate,
+     compact single line directly beneath the QR, not an overlay. */
+  .qr-grid-cell{ padding:0; border:none; justify-content:flex-start; }
+  .qr-square-wrap{
+    width:100%; aspect-ratio:1/1; display:flex; align-items:center; justify-content:center;
+    box-sizing:border-box; min-width:0; flex:0 0 auto;
+  }
+  .qr-slot-container{
+    width:100%; height:100%; display:flex; align-items:center; justify-content:center;
+    background:#ffffff; box-sizing:border-box; position:relative;
+  }
+  .qr-slot-container > div{width:100%; height:100%; display:flex; align-items:center; justify-content:center; max-width:100%;}
+  .qr-caption{
+    width:100%; flex:0 0 auto; font-weight:800; text-align:center;
+    padding:2px 3px; box-sizing:border-box; background:#ffffff;
+    font-size:9px; line-height:1.2; color:var(--primary); font-family:'Roboto Mono',monospace;
+    letter-spacing:0.2px; word-break:break-all; overflow-wrap:break-word;
+  }
+
+  .action-buttons{width:100%; display:flex; gap:0; margin-top:0; padding:0;}
+  /* Professional, "3D curved" pill buttons: a solid eye-catching color per
+     action, a very thin white bezel/border, an inset highlight near the
+     top and a soft inset shadow near the bottom (the two together read as
+     a gently curved/embossed surface rather than a flat rectangle), plus
+     a real drop shadow to lift each button off the page. Icon sits as the
+     base layer and the label overlays directly on top of it, both centered. */
+  .action-buttons button{
+    position:relative; flex:1; border:1.5px solid rgba(255,255,255,0.95); border-radius:0;
+    padding:0; margin:0; font-family:'Inter',sans-serif; cursor:pointer;
+    height:54px; overflow:hidden; display:flex; align-items:center; justify-content:center;
+    box-shadow:
+      0 3px 5px rgba(0,0,0,0.22),
+      inset 0 1.5px 0 rgba(255,255,255,0.55),
+      inset 0 -7px 10px rgba(0,0,0,0.16);
+    transition: transform 0.08s ease, box-shadow 0.08s ease;
+  }
+  .action-buttons button:active{
+    transform: translateY(1px) scale(0.96);
+    box-shadow:
+      0 1px 2px rgba(0,0,0,0.22),
+      inset 0 1.5px 0 rgba(255,255,255,0.4),
+      inset 0 -3px 6px rgba(0,0,0,0.2);
+  }
+  .action-buttons button .btn-content{
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    width:100%; height:100%; padding:0 2px;
+  }
+  .action-buttons button .ic{
+    font-size:22px; line-height:1; flex-shrink:0;
+  }
+  .action-buttons button .lbl{
+    font-size:16px; font-weight:900; letter-spacing:0.2px; line-height:1;
+    text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    color:#ffffff; text-shadow:0 1px 2px rgba(0,0,0,0.6), 0 0 5px rgba(0,0,0,0.4);
+  }
+  /* One solid, eye-catching color per action — blue / green / yellow / red —
+     each with light-to-dark shading for the curved look. Yellow needs a
+     dark label instead of white for legible contrast. */
+  #btnReset{background:linear-gradient(180deg,#5AA9FF,#1565C0);}
+  #btnSave{background:linear-gradient(180deg,#FFD54F,#E8A317);}
+  #btnSave .lbl{color:#3A2A00; text-shadow:0 1px 0 rgba(255,255,255,0.35);}
+  #btnPay{background:linear-gradient(180deg,#3DDC84,#1B8A4B);}
+  #btnImage{background:linear-gradient(180deg,#FF7A7A,#D32F2F);}
+  .action-buttons button:disabled{opacity:0.55; cursor:not-allowed;}
+
+  /* A distinct spacer row between the action bar and the live bill preview
+     below it, so the buttons and the image don't read as one fused block. */
+  .action-image-divider{width:100%; height:0; flex:0 0 auto;}
+
+  /* Activity log — fixed to the bottom edge of the viewport, collapsed to
+     roughly 2 lines by default, expanding to a tall readable panel on
+     focus and shrinking back on blur. Every status/progress message the
+     app produces is appended here (not just the latest one). */
+  #formMsg{
+    position:fixed; left:0; right:0; bottom:0; z-index:80;
+    background:rgba(255,255,255,0.98); border-top:1.5px solid var(--primary);
+    font-family:'Roboto Mono',monospace; font-size:10.5px; line-height:1.35; color:var(--ink);
+    text-align:left; box-sizing:border-box; padding:2px 6px;
+    padding-bottom:calc(2px + env(safe-area-inset-bottom));
+    height:calc(2 * 1.35em + 4px);
+    overflow-y:auto; -webkit-overflow-scrolling:touch;
+    transition:height 0.18s ease; outline:none;
+  }
+  #formMsg:focus{ height:42vh; }
+  #formMsg .log-line{white-space:pre-wrap; word-break:break-word; padding:1px 0; border-bottom:1px dashed #eef3f3;}
+  #formMsg .log-line:last-child{border-bottom:none;}
+  #formMsg .log-err{color:var(--danger); font-weight:800;}
+  body{padding-bottom:calc(2 * 1.35 * 10.5px + 16px + env(safe-area-inset-bottom));}
+
+  .modal-overlay{position:fixed; inset:0; background:rgba(0,0,0,0.55); display:flex; align-items:center; justify-content:center; z-index:100; padding:0;}
+  .modal-box{background:#fff; border-radius:var(--radius); padding:0; max-height:85vh; overflow-y:auto; width:100%; font-weight:700; box-shadow:none; display:flex; flex-direction:column;}
+  .modal-box h3{font-family:'Baloo 2',sans-serif; color:var(--primary); margin:0; padding:8px 8px 3px; font-size:18px;}
+  .modal-box > .field-hint{padding:0 8px; margin-bottom:3px;}
+  .modal-box ol{padding:6px 8px 6px 22px; font-size:14px; line-height:1.35; margin:0;}
+  .modal-box button.close-btn{margin:6px 6px; background:var(--primary); color:#fff; border:none; border-radius:var(--radius); padding:8px 14px; font-weight:800; font-size:14px; cursor:pointer;}
+  
+  .qty-grid{display:grid; grid-template-columns:repeat(5, 1fr); gap:1px; margin:0 1px;}
+  .qty-grid button{border:1.5px solid var(--primary); border-radius:5px; padding:10px 1px; font-weight:900; font-size:19px; cursor:pointer; transition:transform 0.1s;}
+  .qty-grid button:active{transform:scale(0.95);}
+  
+  .qty-grid button:nth-child(5n+1){ background:#E8F8F5; color:#117A65; border-color:#A3E4D7; }
+  .qty-grid button:nth-child(5n+2){ background:#FEF9E7; color:#B7950B; border-color:#F9E79F; }
+  .qty-grid button:nth-child(5n+3){ background:#EBF5FB; color:#2874A6; border-color:#AED6F1; }
+  .qty-grid button:nth-child(5n+4){ background:#FADBD8; color:#78281F; border-color:#F5B7B1; }
+  .qty-grid button:nth-child(5n+0){ background:#F4ECF7; color:#512E5F; border-color:#D7BDE2; }
+
+  .item-list{display:flex; flex-direction:column; gap:1px; margin:0 1px; max-height:52vh; overflow-y:auto;}
+  .item-list button{text-align:left; border:1.5px solid #d8e6e6; border-radius:5px; padding:9px 8px; font-weight:800; font-size:17px; cursor:pointer; transition:transform 0.1s;}
+  .item-list button:active{transform:scale(0.98);}
+
+  .item-list button:nth-child(5n+1){ background:#F2F9F9; border-color:#BCE3E5; color:#0B5E64; }
+  .item-list button:nth-child(5n+2){ background:#FFF9F2; border-color:#FFE3C2; color:#A65300; }
+  .item-list button:nth-child(5n+3){ background:#F7F4FC; border-color:#E2D5F8; color:#5B2C90; }
+  .item-list button:nth-child(5n+4){ background:#F2FAF4; border-color:#C3ECCB; color:#1D6A32; }
+  .item-list button:nth-child(5n+0){ background:#FCF2F5; border-color:#F7C8D5; color:#901A3E; }
+
+  .item-list button.others-btn{border-style:dashed; font-style:italic; background:#fff !important; color:var(--ink) !important; border-color:var(--primary) !important;}
+  .item-list button.add-new-btn{border-style:solid; font-weight:900; background:var(--primary-light) !important; color:var(--primary) !important; border-color:var(--primary) !important;}
+  .new-item-form{display:flex; flex-direction:column; gap:6px; margin:2px 8px 8px;}
+  .new-item-form label{margin:4px 0 1px;}
+  .desc-wrap{position:relative; display:block;}
+  .desc-wrap input.desc{padding-right:20px;}
+  .desc-pick-btn{position:absolute; right:0; top:0; bottom:0; width:20px; border:none; background:transparent; color:var(--primary); font-size:13px; font-weight:900; cursor:pointer; padding:0; line-height:1; display:flex; align-items:center; justify-content:center;}
+  .desc-pick-btn:active{transform:scale(0.85);}
+  .manage-list{display:flex; flex-direction:column; gap:4px; margin:4px 8px 6px; max-height:48vh; overflow-y:auto;}
+  .manage-row{display:flex; align-items:center; gap:6px; border:1.5px solid #d8e6e6; border-radius:var(--radius); padding:6px 8px; background:#F7FBFB;}
+  .manage-row.is-disabled{opacity:0.5;}
+  .manage-row-info{flex:1; min-width:0;}
+  .manage-row-name{font-weight:900; font-size:14px; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .manage-row-sub{font-size:12px; font-weight:600; color:#5a6b6d; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .manage-row-actions{display:flex; gap:4px; flex:0 0 auto;}
+  .manage-row-actions button{border:none; border-radius:var(--radius); padding:6px 9px; font-size:14px; cursor:pointer; font-weight:800;}
+  .manage-edit-btn{background:var(--primary-light); color:var(--primary);}
+  .manage-del-btn{background:#FDECEA; color:var(--danger);}
+  .manage-toggle-btn{background:#FFF3E0; color:#A65300; font-size:12px !important;}
+  .modal-actions{display:flex; flex-wrap:wrap; gap:6px; margin:6px 6px 6px;}
+  .modal-actions button.close-btn{flex:1 1 100px; margin:0; min-width:0; font-size:12.5px; padding:8px 6px; white-space:normal; line-height:1.15; text-align:center;}
+  .modal-actions button.close-btn.finish-btn{flex:1 1 140px; margin-top:0; font-size:13px;}
+  .custom-item-box{display:flex; gap:0; margin:2px 4px 4px; flex:0 0 auto;}
+  .custom-item-box input{flex:1;}
+  button.finish-btn{background:var(--accent); color:#1a1200; margin-top:4px; font-size:15px;}
+  #qtyCustomInput{width:100%; margin-bottom:4px;}
+  .qty-grid button.others-btn{border-style:dashed; font-style:italic; font-size:12px; padding:2px 1px; background:#fff !important; color:var(--ink) !important; border-color:var(--primary) !important;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="tb-side">
+    <input type="date" id="orderDate" tabindex="1" onchange="refreshOrderNo(); scheduleUpdate();" onkeydown="handleEnterFocus(event, 'orderNo')" onclick="this.showPicker?.(); this.click();">
+  </div>
+  <button id="helpBtn" onclick="toggleModal('helpModal', true)"><span>❓</span><span>Help</span></button>
+  <div class="tb-side tb-right">
+    <div class="ordnav">
+      <button type="button" class="ordnav-btn" tabindex="-1" title="Older bill" onclick="cycleOrder(1)">‹</button>
+      <input type="text" id="orderNo" tabindex="2" maxlength="6" inputmode="none" onblur="padOrderNo()" oninput="orderNoManual = true; scheduleUpdate();" onfocus="this.select()" onclick="openOrderHistoryModal()" onkeydown="handleEnterFocus(event, 'custName')">
+      <button type="button" class="ordnav-btn" tabindex="-1" title="Newer bill" onclick="cycleOrder(-1)">›</button>
+    </div>
+  </div>
+</div>
+
+<div class="editor">
+  <div class="row2" style="margin-bottom:0; position:relative;">
+    <input type="text" id="custName" tabindex="3" maxlength="20" placeholder="Customer name (max 20)" oninput="scheduleUpdate(); showCustomerSuggestions('name');" onfocus="this.select()" onblur="onCustNameBlur()" onkeydown="handleEnterFocus(event, 'custPhone')">
+    <input type="tel" id="custPhone" tabindex="4" maxlength="13" placeholder="Mobile (13 digits)" style="flex:0 0 130px; border-radius:var(--radius);" oninput="onPhoneInput(); showCustomerSuggestions('phone');" onfocus="this.select()" onblur="hideCustomerSuggestionsDelayed(); logPhoneValidation();" onkeydown="handleEnterFocus(event, 'desc_row_1')">
+    <div id="custSuggestBox" class="suggest-box" style="display:none;"></div>
+  </div>
+  <div class="field-hint" id="phoneHint" style="margin-bottom:0;">Optional — required only to send on WhatsApp</div>
+
+  <table class="items">
+    <thead><tr><th>#</th><th>Item</th><th>Qty</th><th>Free</th><th>Rate</th><th>Amt</th></tr></thead>
+    <tbody id="itemsBody"></tbody>
+    <tfoot>
+      <tr style="background:var(--row-subtotal); font-weight:900; font-size:14px;">
+        <td id="footerItemCount" style="text-align:center; padding:6px 2px;">0</td>
+        <td style="text-align:left; padding:6px 4px;">Count & Sub Total</td>
+        <td id="footerQty" style="text-align:center;">0</td>
+        <td id="footerFree" style="text-align:center;">-</td>
+        <td id="footerRateSum" style="text-align:center;">-</td>
+        <td id="footerAmt" style="text-align:right; font-family:'Roboto Mono',monospace; padding-right:4px; font-size:18px;">0</td>
+      </tr>
+    </tfoot>
+  </table>
+  <div class="field-hint">Rate & Free quantities are auto-filled and skipped by default — tap manually to alter them.</div>
+
+  <div class="discount-row" style="margin-top:0;">
+    <input type="text" id="discountLabel" tabindex="31" maxlength="25" placeholder="Discount" onfocus="this.select()" onkeydown="handleEnterFocus(event, 'discountVal')">
+    <button type="button" id="discountOp" tabindex="-1" data-op="-" onclick="toggleDiscountOp()">−</button>
+    <input type="number" id="discountVal" tabindex="32" value="0" min="0" max="9999999" oninput="limit7Digits(this); scheduleUpdate();" onfocus="this.select()" onkeydown="handleEnterFocus(event, 'payAmountInput_0')">
+  </div>
+  <div class="field-hint">Amount to add or subtract from the subtotal</div>
+
+  <div class="totals">
+    <div class="trow grand">
+      <span class="amount-words-container" id="edAmountWords">Order Value: Rupees Zero Only</span>
+      <span id="edOrderAmount">₹0</span>
+    </div>
+  </div>
+  <div class="words" id="edPaymentBreakdown" style="display:none;"><b>Payment methods</b><div id="edPaymentBreakdownRows"></div></div>
+
+  <label style="margin-top:0">Payment Allocation</label>
+  <div id="paymentRowsContainer"></div>
+  <button type="button" class="add-pay-btn" onclick="addPaymentRow()">+ Add Payment Method</button>
+  <div class="field-hint" id="paymentStatus">Add items to determine the order amount.</div>
+  <div id="paymentQrPreview" class="payment-qr-preview"></div>
+</div>
+
+<div class="action-buttons">
+  <button id="btnReset" tabindex="500" onclick="handleActionBtn1()"><div class="btn-content"><span class="ic">↩️</span><span class="lbl">Discard</span></div></button>
+  <button id="btnSave" tabindex="501" onclick="handleActionBtn2()"><div class="btn-content"><span class="ic">💾</span><span class="lbl">Save</span></div></button>
+  <button id="btnPay" tabindex="502" onclick="sendPayment()"><div class="btn-content"><span class="ic">💰</span><span class="lbl">WA Pay</span></div></button>
+  <button id="btnImage" tabindex="503" onclick="saveAndSendImage()"><div class="btn-content"><span class="ic">🖼️</span><span class="lbl">WA Image</span></div></button>
+</div>
+
+<div class="action-image-divider"></div>
+
+<div class="image-wrap" id="imageWrap" style="display:none;"><div id="orderImage"></div></div>
+
+<div id="formMsg" tabindex="600" aria-label="Activity log"></div>
+
+<!-- Modals -->
+<div id="qtyModal" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <h3 id="qtyModalTitle">Select Quantity</h3>
+    <div class="field-hint">Tap a quantity, or use "Custom" for any other amount. Entering 0 clears this line.</div>
+    <div id="qtyGrid" class="qty-grid"></div>
+    <div id="qtyCustomBox" class="custom-item-box" style="display:none;">
+      <input type="number" id="qtyCustomInput" maxlength="7" placeholder="Enter quantity" onfocus="this.select()" oninput="limit7Digits(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();applyManualQty();}">
+      <button type="button" class="close-btn" onclick="applyManualQty()">Set</button>
+    </div>
+    <div class="modal-actions">
+      <button class="close-btn" onclick="toggleModal('qtyModal', false)">Close</button>
+      <button class="close-btn finish-btn" onclick="finishEntry()">✅ Finish Items — Go to Details</button>
+    </div>
+  </div>
+</div>
+
+<div id="itemModal" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <h3 id="itemModalTitle">Select Item</h3>
+    <div id="itemList" class="item-list"></div>
+    <div id="customItemBox" class="custom-item-box" style="display:none;">
+      <input type="text" id="customItemInput" maxlength="25" placeholder="Type item description" onfocus="this.select()" onkeydown="if(event.key==='Enter'){event.preventDefault();applyCustomItem();}">
+      <button type="button" class="close-btn" onclick="applyCustomItem()">Use</button>
+    </div>
+    <div class="field-hint">Short item name, up to 25 characters. Rate is entered next.</div>
+    <div class="modal-actions">
+      <button type="button" class="close-btn" onclick="openManageItemsModal()">🛠 Manage Items</button>
+      <button class="close-btn" onclick="toggleModal('itemModal', false)">Close</button>
+      <button class="close-btn finish-btn" onclick="finishEntry()">✅ Finish Items — Go to Details</button>
+    </div>
+  </div>
+</div>
+
+<div id="newItemModal" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <h3 id="newItemModalTitle">Add New Item</h3>
+    <div class="field-hint" id="newItemModalHint">Saved permanently — it'll appear in the item list for future orders too.</div>
+    <div class="new-item-form">
+      <div>
+        <label>Item Name</label>
+        <input type="text" id="newItemName" maxlength="25" placeholder="e.g. BT can 750g" onfocus="this.select()" onkeydown="if(event.key==='Enter'){event.preventDefault(); $('newItemRate').focus();}">
+      </div>
+      <div>
+        <label>Rate (₹)</label>
+        <input type="number" id="newItemRate" min="0" placeholder="0" onfocus="this.select()" onkeydown="if(event.key==='Enter'){event.preventDefault(); $('newItemMoq').focus();}">
+      </div>
+      <div>
+        <label>MOQ (Min. Order Qty)</label>
+        <input type="number" id="newItemMoq" min="1" placeholder="1" onfocus="this.select()" onkeydown="if(event.key==='Enter'){event.preventDefault(); $('newItemFree').focus();}">
+      </div>
+      <div>
+        <label>Free Qty per MOQ (optional)</label>
+        <input type="number" id="newItemFree" min="0" placeholder="0" onfocus="this.select()" onkeydown="if(event.key==='Enter'){event.preventDefault(); saveNewItem();}">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="close-btn" id="newItemSaveBtn" onclick="saveNewItem()">✅ Save &amp; Use This Item</button>
+      <button type="button" class="close-btn" onclick="cancelNewItemModal()">‹ Back</button>
+    </div>
+  </div>
+</div>
+
+<div id="manageItemsModal" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <h3>Manage Items</h3>
+    <div class="field-hint">Edit rate/MOQ/free qty, remove items you no longer sell, or add new ones. Changes are saved permanently.</div>
+    <div id="manageItemsList" class="manage-list"></div>
+    <div class="modal-actions">
+      <button type="button" class="close-btn add-new-btn" onclick="openNewItemModal('manage')">➕ Add New Item</button>
+      <button type="button" class="close-btn" onclick="toggleModal('manageItemsModal', false)">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="paymentMethodModal" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <h3 id="paymentMethodModalTitle">Select Payment Method</h3>
+    <div id="paymentMethodList" class="item-list"></div>
+    <div class="modal-actions">
+      <button type="button" class="close-btn add-new-btn" onclick="openNewPaymentModal('order')">➕ Add New Payment Method</button>
+      <button type="button" class="close-btn" onclick="openManagePaymentModal()">🛠 Manage Payment Methods</button>
+      <button class="close-btn" onclick="closePaymentMethodModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="newPaymentModal" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <h3 id="newPaymentModalTitle">Add New Payment Method</h3>
+    <div class="field-hint">Saved permanently — it'll appear in the payment method list for future orders too.</div>
+    <div class="new-item-form">
+      <div>
+        <label>Name</label>
+        <input type="text" id="newPaymentName" maxlength="30" placeholder="e.g. Ramesh" onfocus="this.select()" onkeydown="if(event.key==='Enter'){event.preventDefault(); $('newPaymentUpi').focus();}">
+      </div>
+      <div>
+        <label>UPI ID (leave blank for cash)</label>
+        <input type="text" id="newPaymentUpi" maxlength="60" placeholder="e.g. name@bank" onfocus="this.select()" onkeydown="if(event.key==='Enter'){event.preventDefault(); saveNewPayment();}">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="close-btn" id="newPaymentSaveBtn" onclick="saveNewPayment()">✅ Save &amp; Use This Method</button>
+      <button type="button" class="close-btn" onclick="cancelNewPaymentModal()">‹ Back</button>
+    </div>
+  </div>
+</div>
+
+<div id="managePaymentModal" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <h3>Manage Payment Methods</h3>
+    <div class="field-hint">Edit a name/UPI ID, or add new methods. "Hide" keeps a method out of future orders without disturbing old saved bills that used it — it's not a true delete.</div>
+    <div id="managePaymentList" class="manage-list"></div>
+    <div class="modal-actions">
+      <button type="button" class="close-btn add-new-btn" onclick="openNewPaymentModal('manage')">➕ Add New Payment Method</button>
+      <button type="button" class="close-btn" onclick="toggleModal('managePaymentModal', false)">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="orderHistoryModal" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <h3>Previous Orders</h3>
+    <div class="field-hint">Tap an order to load it. Enter a number below to start a new order.</div>
+    <div class="custom-item-box" style="margin:4px 10px 8px;">
+      <input type="text" id="orderHistorySearch" placeholder="Search name, phone or order no." oninput="renderOrderHistoryList(filterOrderHistory(this.value))">
+    </div>
+    <div id="orderHistoryList" class="item-list"></div>
+    <button class="close-btn" onclick="toggleModal('orderHistoryModal', false)">Close</button>
+  </div>
+</div>
+
+<div id="helpModal" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <h3>How to use this app</h3>
+    <ol>
+      <li><b>Programme Logic & Flow:</b> The application operates sequentially from top to bottom, moving from order configuration and item selection to payment allocation, automated QR generation, and final action execution (WhatsApp or download).</li>
+      <li><b>Expected Input:</b> 
+        <ul>
+          <li>Order Date and Order Number at the top bar.</li>
+          <li>Customer name (up to 20 characters) and a 13-digit mobile number layout.</li>
+          <li>Item descriptions, quantities, free quantities, and rates selected via interactive modals or custom entry.</li>
+          <li>Optional discount labeling and amount.</li>
+          <li>Split payment method allocation matching the exact order total.</li>
+        </ul>
+      </li>
+      <li><b>Resulting Output:</b> 
+        <ul>
+          <li>A real-time visual receipt summary with localized words formatting, dynamic customer appreciation quotes, and auto-generated UPI QR code grids for non-cash transfers.</li>
+          <li>Fully formatted WhatsApp messages or downloadable, high-resolution PNG order summaries.</li>
+        </ul>
+      </li>
+      <li><b>Further Actions:</b> 
+        <ul>
+          <li>Review payment status validation cues (unallocated or over-allocated warnings).</li>
+          <li>Use <b>WA Pay</b> or <b>WA Image</b> to dispatch details directly via WhatsApp, or click <b>Save Order</b> to download the receipt image locally.</li>
+        </ul>
+      </li>
+    </ol>
+    <div class="modal-actions">
+      <button type="button" class="close-btn" onclick="toggleModal('helpModal', false); openManageItemsModal();">🛠 Manage Items</button>
+      <button type="button" class="close-btn" onclick="toggleModal('helpModal', false); openManagePaymentModal();">💳 Manage Payment Methods</button>
+      <button class="close-btn" onclick="toggleModal('helpModal', false)">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+// ---- Activity log (fixed bottom panel) ----
+// Every status/progress message the app produces is appended as its own
+// line (with a timestamp) instead of replacing the previous one, so the
+// panel builds up a running log. Collapsed height is ~2 lines (see CSS);
+// focusing the panel (tap/click into it) expands it for easy reading,
+// blurring it shrinks it back. New lines auto-scroll into view unless the
+// user currently has the panel focused/expanded and is reading back through it.
+const LOG_MAX_LINES = 300;
+function logMsg(text, isError){
+  const panel = $('formMsg');
+  if(!panel) return;
+  const time = new Date().toLocaleTimeString('en-IN', { hour12:false });
+  const line = document.createElement('div');
+  line.className = 'log-line' + (isError ? ' log-err' : '');
+  line.textContent = `[${time}] ${text}`;
+  panel.appendChild(line);
+  while(panel.children.length > LOG_MAX_LINES) panel.removeChild(panel.firstChild);
+  if(document.activeElement !== panel) panel.scrollTop = panel.scrollHeight;
+}
+
+// ---- Shrink-to-fit text (company name/address, QR scan instructions) ----
+// Starts at maxPx and steps the font size down only as far as needed for
+// the element's own content to fit the width available to it on one line
+// (no wrap) — i.e. the maximum size that still fits, not a fixed guess.
+function fitTextToWidth(el, maxPx, minPx){
+  if(!el) return;
+  let size = maxPx;
+  el.style.fontSize = size + 'px';
+  let guard = 0;
+  while(el.scrollWidth > el.clientWidth + 0.5 && size > minPx && guard < 60){
+    size -= 1;
+    el.style.fontSize = size + 'px';
+    guard++;
+  }
+}
+
+// ---- Rounded corners + thin white bezel for the exported PNG ----
+// Composites the raw html2canvas capture onto a new canvas: a soft drop
+// ---- Rounded corners + thin white bezel for the exported PNG ----
+// Composites the raw html2canvas capture onto a new canvas: a solid-white
+// rounded-rect bezel with the captured content drawn inset and clipped to
+// a matching, slightly smaller rounded rect on top. No shadow/sheen — the
+// output canvas is exactly the card's own size, so content fills the PNG
+// right to its edges. bezelPx/radiusPx are in *output* pixels (already at
+// the capture scale), so they stay visually consistent at any resolution.
+function roundedRectPath(ctx, x, y, w, h, r){
+  const rr = Math.max(0, Math.min(r, w / 2, h / 2));
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rr);
+  ctx.arcTo(x + w, y + h, x, y + h, rr);
+  ctx.arcTo(x, y + h, x, y, rr);
+  ctx.arcTo(x, y, x + w, y, rr);
+  ctx.closePath();
+}
+function applyRoundedBezel(sourceCanvas, bezelPx, radiusPx){
+  const w = sourceCanvas.width, h = sourceCanvas.height;
+  const cardW = w + bezelPx * 2, cardH = h + bezelPx * 2;
+  const out = document.createElement('canvas');
+  out.width = cardW; out.height = cardH;
+  const ctx = out.getContext('2d');
+  roundedRectPath(ctx, 0, 0, cardW, cardH, radiusPx);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+  ctx.save();
+  roundedRectPath(ctx, bezelPx, bezelPx, w, h, Math.max(0, radiusPx - bezelPx));
+  ctx.clip();
+  ctx.drawImage(sourceCanvas, bezelPx, bezelPx);
+  ctx.restore();
+  return out;
+}
+// Capture #imageWrap and return a PNG blob with the rounded-corner/white-bezel
+// treatment baked in. Output width is pinned to TARGET_IMAGE_WIDTH_PX
+// (1080 — a 9:16/1080p-style reference width) regardless of the device's
+// actual viewport, by scaling html2canvas's capture accordingly; height is
+// whatever the bill's own content requires (it simply grows/shrinks with
+// the number of items, receivers, QR codes etc.) — never cropped or padded
+// to a fixed height.
+const TARGET_IMAGE_WIDTH_PX = 1080;
+async function captureBillImageBlob(node){
+  const cssWidth = node.getBoundingClientRect().width || node.offsetWidth || 1;
+  const scale = TARGET_IMAGE_WIDTH_PX / cssWidth;
+  const raw = await html2canvas(node, { scale, backgroundColor:null, useCORS:true, allowTaint:true });
+  // Edge-to-edge: no bezel — content is clipped directly to rounded
+  // corners and fills the output canvas exactly (same size as the capture).
+  const finished = applyRoundedBezel(raw, 0, Math.round(18 * scale));
+  return await new Promise(resolve => finished.toBlob(resolve, 'image/png'));
+}
+
+// ---- Fill-and-fit text block (QR scan instructions) ----
+// Unlike fitTextToWidth (single line, shrink-only), this scales a whole
+// block of text — set as the container's own font-size, with children
+// sized in em so they scale together — up or down to the largest size
+// that still fits the container's box on both axes, wrapping allowed.
+// Re-run on every render, so it re-adapts automatically whenever the
+// stored instruction text is edited (shorter, longer, more lines).
+function fitBoxText(container, maxPx, minPx){
+  if(!container) return;
+  let size = maxPx;
+  container.style.fontSize = size + 'px';
+  let guard = 0;
+  const overflows = () =>
+    container.scrollHeight > container.clientHeight + 0.5 ||
+    container.scrollWidth > container.clientWidth + 0.5;
+  while(overflows() && size > minPx && guard < 80){
+    size -= 0.5;
+    container.style.fontSize = size + 'px';
+    guard++;
+  }
+  // If there's clear headroom left (short text in a tall cell), grow back
+  // up toward maxPx so the text fills the space rather than sitting small.
+  guard = 0;
+  while(!overflows() && size < maxPx && guard < 80){
+    size += 0.5;
+    container.style.fontSize = size + 'px';
+    if(overflows()){ size -= 0.5; container.style.fontSize = size + 'px'; break; }
+    guard++;
+  }
+}
+
+// The bilingual QR-scan-instructions image the user supplied — shown
+// in the instruction partition instead of the plain text block. Kept
+// as the built-in fallback default; a cloud-saved config/scanNoteImage
+// value (see subscribeConfigCloudSync) overrides it once loaded.
+const DEFAULT_SCAN_NOTE_IMAGE = "";
+</script>
+</body>
+</html>
