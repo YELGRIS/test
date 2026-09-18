@@ -187,6 +187,13 @@
     box-shadow: 0 2px 6px rgba(0,0,0,0.10);
     overflow:hidden; background:#ffffff; padding:0; box-sizing:border-box;
   }
+  /* While being captured for a PNG (Save / WA Pay / WA Image), the card is
+     unhidden but pushed off-canvas via position:fixed rather than shown
+     in normal flow — html2canvas needs it genuinely laid out/painted, but
+     the user should never see it flash on screen. Fixed elements don't
+     contribute to the document's scrollable area, so this can't cause a
+     stray horizontal scrollbar either. */
+  .image-wrap.capturing{ display:block; position:fixed; top:0; left:100vw; z-index:-1; margin:0; }
   #orderImage{
     width:100%; background:#fff; font-family:'Inter',sans-serif; color:var(--ink); 
     border:none; outline:none; margin:0; padding:0; overflow:hidden; box-sizing:border-box;
@@ -440,6 +447,28 @@
      below it, so the buttons and the image don't read as one fused block. */
   .action-image-divider{width:100%; height:14px; flex:0 0 auto;}
 
+  /* Scan & Pay — the lightweight, always-live replacement for showing the
+     full bill card during entry: just big, immediately-scannable QR code(s)
+     for whichever receiver(s) the payment is currently split across. */
+  .scan-pay-panel{
+    width:100%; box-sizing:border-box; background:#ffffff; border-radius:16px;
+    padding:10px; box-shadow:0 2px 8px rgba(0,0,0,0.12);
+  }
+  .scan-pay-title{
+    text-align:center; font-weight:900; font-size:13px; color:var(--primary);
+    margin-bottom:8px; letter-spacing:0.2px;
+  }
+  .scan-pay-grid{
+    display:flex; flex-wrap:wrap; justify-content:center; gap:10px;
+  }
+  .scan-pay-card{
+    flex:1 1 140px; max-width:260px; display:flex; flex-direction:column; align-items:center;
+    gap:4px; padding:8px; border:1.5px dashed var(--primary); border-radius:12px;
+  }
+  .scan-pay-card .spc-qr{ line-height:0; }
+  .scan-pay-card .spc-name{ font-weight:800; font-size:13px; color:var(--ink); text-align:center; }
+  .scan-pay-card .spc-amount{ font-weight:900; font-size:15px; color:var(--primary); text-align:center; }
+
   /* Activity log — fixed to the bottom edge of the viewport, collapsed to
      roughly 2 lines by default, expanding to a tall readable panel on
      focus and shrinking back on blur. Every status/progress message the
@@ -587,6 +616,18 @@
 
 <div class="action-image-divider"></div>
 
+<!-- Scan & Pay: shows large, immediately-scannable QR code(s) for the
+     current payment allocation(s) — this is what's live during entry now,
+     instead of the full composed bill card (see renderScanPayPanel). -->
+<div class="scan-pay-panel" id="scanPayPanel" style="display:none;">
+  <div class="scan-pay-title">📲 Scan &amp; Pay</div>
+  <div class="scan-pay-grid" id="scanPayGrid"></div>
+</div>
+
+<!-- The full bill card lives off-screen and stays display:none except for
+     the brief moment it's captured to a PNG (Save / WA Pay / WA Image) —
+     see buildFullBillCard()/captureFullBillCardBlob(). It's never the live
+     on-screen preview during entry any more. -->
 <div class="image-wrap" id="imageWrap" style="display:none;"><div id="orderImage"></div></div>
 
 <div id="formMsg" tabindex="600" aria-label="Activity log"></div>
@@ -2237,32 +2278,72 @@ function discardChanges(){
 function scheduleUpdate(){
   markFormDirty();
   clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(renderOrderImage, 150);
+  debounceTimer = setTimeout(updateLivePreview, 150);
 }
 
-async function renderOrderImage(){
+// Runs on every debounced keystroke (see scheduleUpdate). Cheap only:
+// reads the form, updates the on-screen totals/summary, enables/disables
+// the action buttons, and refreshes the Scan & Pay QR panel. It no longer
+// touches #orderImage at all — the full composed bill card (company
+// header, items, styled QR grid, instructions image, fitText passes) is
+// expensive to build and is now only built right before it's actually
+// needed for a capture (see buildFullBillCard / captureFullBillCardBlob),
+// not continuously while the person is typing.
+async function updateLivePreview(){
   const data = await collectData();
   updateEditorSummary(data);
-  const nonCash = data.paymentAllocations.filter(a => a.receiver && a.receiver.upi);
 
   const unassignedExists = data.paymentAllocations.some(a => a.receiver === null);
   const diff = data.orderAmountVal - Math.round(data.totalAllocated);
   const isValid = data.orderAmountVal > 0 && diff === 0 && data.rows.length > 0 && !unassignedExists;
-  const imageWrap = $('imageWrap');
 
   $('btnPay').disabled = !isValid;
   $('btnImage').disabled = !isValid;
   $('btnSave').disabled = viewLocked ? false : !isValid; // "Edit" (viewing) is always clickable
 
-  if(!isValid){
-    imageWrap.style.display = 'none';
-    $('orderImage').innerHTML = '';
-    return data;
+  renderScanPayPanel(isValid ? data : null);
+  return data;
+}
+
+// The lightweight "immediate scan and pay" panel: one big QR per non-cash
+// payment receiver, no company header/items/instructions — just enough to
+// let someone scan and pay right away while the bill is still being
+// entered. Cheap enough to redraw on every keystroke's debounce tick.
+function renderScanPayPanel(data){
+  const panel = $('scanPayPanel'), grid = $('scanPayGrid');
+  const nonCash = data ? data.paymentAllocations.filter(a => a.receiver && a.receiver.upi) : [];
+  if(!nonCash.length){
+    panel.style.display = 'none';
+    grid.innerHTML = '';
+    return;
   }
+  panel.style.display = 'block';
+  grid.innerHTML = nonCash.map((alloc, i) =>
+    `<div class="scan-pay-card">
+       <div class="spc-qr" id="scanPayQr_${i}"></div>
+       <div class="spc-name">${esc(alloc.receiver.name)}</div>
+       <div class="spc-amount">${inr(alloc.amount)}</div>
+     </div>`
+  ).join('');
+  const qrColor = qrSafeColor(THEME.primary || '#0B5E64');
+  nonCash.forEach((alloc, i) => {
+    const slot = $(`scanPayQr_${i}`);
+    if(slot){
+      const upiUrl = buildUpiUrlFor(alloc.receiver, alloc.amount, data.custName);
+      generateQr(slot, upiUrl, 220, qrColor);
+    }
+  });
+}
 
-  imageWrap.style.display = 'block';
-
+// Builds the full composed bill card into #orderImage — the expensive
+// path (template, fitText passes, full QR grid) that used to run on every
+// keystroke. Now only called right before a capture. The card must be
+// genuinely laid out for html2canvas/fitText's width measurements to
+// work, so it's unhidden (off-canvas via the .capturing class) rather
+// than built while display:none.
+function buildFullBillCard(data){
   const container = $('orderImage');
+  const nonCash = data.paymentAllocations.filter(a => a.receiver && a.receiver.upi);
   container.innerHTML = orderImageTemplate(data, nonCash);
 
   // Shrink company name/address and the QR scan-instruction lines to the
@@ -2292,7 +2373,25 @@ async function renderOrderImage(){
       }
     });
   }
-  return data;
+}
+
+// Unhides the card off-canvas, builds it, captures it to a PNG blob, then
+// hides it again — used by Save / WA Pay / WA Image, the only three
+// places that need the actual composed image rather than just the Scan &
+// Pay panel's plain QR(s).
+async function captureFullBillCardBlob(data){
+  const imageWrap = $('imageWrap');
+  imageWrap.classList.add('capturing');
+  imageWrap.style.display = 'block';
+  try{
+    buildFullBillCard(data);
+    if(typeof document.fonts !== 'undefined') await document.fonts.ready;
+    return await captureBillImageBlob(imageWrap);
+  } finally {
+    imageWrap.style.display = 'none';
+    imageWrap.classList.remove('capturing');
+    $('orderImage').innerHTML = ''; // don't hold the built card in memory between captures
+  }
 }
 
 // Some theme primaries (e.g. golds/light blues) are too light for reliable
@@ -2468,7 +2567,7 @@ async function runBillAndImageFlow(btnId, buildWaUrl){
   const btn = $(btnId);
   const waWindow = window.open('', '_blank'); // reserved now, navigated later
   try{
-    const data = await renderOrderImage();
+    const data = await updateLivePreview();
     if(!validateForSend(data)){ if(waWindow) waWindow.close(); return; }
     const phone = requirePhone(data); if(!phone){ if(waWindow) waWindow.close(); return; }
 
@@ -2480,9 +2579,7 @@ async function runBillAndImageFlow(btnId, buildWaUrl){
       isDirty = false;
 
       setActionLabel(btnId, '⏳', 'Saving image');
-      if(typeof document.fonts !== 'undefined') await document.fonts.ready;
-      const node = $('imageWrap');
-      const blob = await captureBillImageBlob(node);
+      const blob = await captureFullBillCardBlob(data);
       if(!blob) throw new Error('Image creation failed.');
       const fileName = `${data.orderNo}-${sanitizeFileName(data.custName)}.png`;
       await saveImageBlob(blob, fileName, currentOrderId);
@@ -2848,17 +2945,15 @@ function loadOrderFromCloud(id){
 async function saveOrder(){
   const btn = $('btnSave');
   try{
-    const data = await renderOrderImage();
+    const data = await updateLivePreview();
     if(!validateForSend(data)) return;
     btn.disabled = true;
     setActionLabel('btnSave', '⏳', 'Saving');
-    if(typeof document.fonts !== 'undefined') await document.fonts.ready;
 
     await persistOrderRecord(data); // local save is instant; cloud sync runs in the background
     isDirty = false;
 
-    const node = $('imageWrap');
-    const blob = await captureBillImageBlob(node);
+    const blob = await captureFullBillCardBlob(data);
     if(!blob) throw new Error('Image creation failed.');
 
     const fileName = `${data.orderNo}-${sanitizeFileName(data.custName)}.png`;
@@ -2927,7 +3022,7 @@ renderPaymentRows();
 buildRows();
 ensureFreshBillIfEmpty();
 applyContentLock(false); // fresh page load = a new, immediately-editable bill
-renderOrderImage();
+updateLivePreview();
 setInterval(refreshOrderNo, 60000);
 setupClipboardPhoneCapture();
 scanClipboardForPhone();
