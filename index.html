@@ -386,7 +386,7 @@
     letter-spacing:0.2px; word-break:break-all; overflow-wrap:break-word;
   }
 
-  .action-buttons{width:100%; display:flex; gap:6px; margin-top:0;}
+  .action-buttons{width:100%; display:flex; gap:3px; margin-top:0;}
   /* Professional, "3D curved" pill buttons: a solid eye-catching color per
      action, a very thin white bezel/border, an inset highlight near the
      top and a soft inset shadow near the bottom (the two together read as
@@ -395,7 +395,7 @@
   .action-buttons button{
     position:relative; flex:1; border:1.5px solid rgba(255,255,255,0.95); border-radius:14px;
     padding:0; font-family:'Inter',sans-serif; cursor:pointer;
-    height:34px; overflow:hidden;
+    height:38px; overflow:hidden;
     box-shadow:
       0 3px 5px rgba(0,0,0,0.22),
       inset 0 1.5px 0 rgba(255,255,255,0.55),
@@ -409,18 +409,19 @@
       inset 0 1.5px 0 rgba(255,255,255,0.4),
       inset 0 -3px 6px rgba(0,0,0,0.2);
   }
-  /* Symbol + text side by side, filling ~90% of the button (5% breathing
-     room on each side, no other padding/margin/gaps) — no more overlaid
-     "watermark" icon sitting behind the label; both sit in normal flow. */
+  /* Symbol + text side by side, filling ~95% of the button's own width
+     (2.5% breathing room each side — the minimum that still keeps the
+     rounded corners looking clean — no other padding/margin/gaps), sized
+     as large as comfortably fits so the caption never wraps or truncates. */
   .action-buttons button{
-    display:flex; align-items:center; justify-content:center; gap:5%;
-    padding:0 5%;
+    display:flex; align-items:center; justify-content:center; gap:2.5%;
+    padding:0 2.5%;
   }
   .action-buttons button .ic{
-    font-size:15px; opacity:1; line-height:1; flex:0 0 auto;
+    font-size:18px; opacity:1; line-height:1; flex:0 0 auto;
   }
   .action-buttons button .lbl{
-    font-size:10px; font-weight:900; letter-spacing:0.2px; line-height:1;
+    font-size:12px; font-weight:900; letter-spacing:0.2px; line-height:1;
     text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
     color:#ffffff; text-shadow:0 1px 2px rgba(0,0,0,0.35);
     flex:1 1 auto; min-width:0;
@@ -534,7 +535,7 @@
 <div class="editor">
   <div class="row2" style="margin-bottom:0; position:relative;">
     <input type="text" id="custName" tabindex="3" maxlength="20" placeholder="Customer name (max 20)" oninput="scheduleUpdate(); showCustomerSuggestions('name');" onfocus="this.select()" onblur="onCustNameBlur()" onkeydown="handleEnterFocus(event, 'custPhone')">
-    <input type="tel" id="custPhone" tabindex="4" maxlength="13" placeholder="Mobile (13 digits)" style="flex:0 0 130px; border-radius:var(--radius);" oninput="onPhoneInput(); showCustomerSuggestions('phone');" onpointerdown="scanClipboardForPhone()" onfocus="this.select(); scanClipboardForPhone();" onblur="hideCustomerSuggestionsDelayed(); logPhoneValidation();" onkeydown="handleEnterFocus(event, 'desc_row_1')">
+    <input type="tel" id="custPhone" tabindex="4" maxlength="13" placeholder="Mobile (13 digits)" style="flex:0 0 130px; border-radius:var(--radius);" oninput="onPhoneInput(); showCustomerSuggestions('phone');" onfocus="this.select()" onblur="hideCustomerSuggestionsDelayed(); logPhoneValidation();" onkeydown="handleEnterFocus(event, 'desc_row_1')">
     <div id="custSuggestBox" class="suggest-box" style="display:none;"></div>
   </div>
   <div class="field-hint" id="phoneHint" style="margin-bottom:0;">Optional — required only to send on WhatsApp</div>
@@ -797,14 +798,15 @@ function fitTextToWidth(el, maxPx, minPx){
 }
 
 // ---- Rounded corners + thin white bezel for the exported PNG ----
-// Composites the raw html2canvas capture onto a new canvas: a soft drop
-// ---- Rounded corners + thin white bezel for the exported PNG ----
+// ---- Rounded corners + ultra-thin white bezel for the exported PNG ----
 // Composites the raw html2canvas capture onto a new canvas: a solid-white
-// rounded-rect bezel with the captured content drawn inset and clipped to
-// a matching, slightly smaller rounded rect on top. No shadow/sheen — the
-// output canvas is exactly the card's own size, so content fills the PNG
-// right to its edges. bezelPx/radiusPx are in *output* pixels (already at
-// the capture scale), so they stay visually consistent at any resolution.
+// rounded-rect bezel — ultra-thin, and flat (no drop-shadow, no gradient
+// sheen: just the curved border itself, no other "3D" treatment) — with
+// the captured content drawn inset and clipped to a matching, slightly
+// smaller rounded rect on top. Content still fills right up to that thin
+// border with no other padding/margin/gaps. bezelPx/radiusPx are in
+// *output* pixels (already at the capture scale), so both stay visually
+// consistent at any resolution.
 function roundedRectPath(ctx, x, y, w, h, r){
   const rr = Math.max(0, Math.min(r, w / 2, h / 2));
   ctx.beginPath();
@@ -843,9 +845,9 @@ async function captureBillImageBlob(node){
   const cssWidth = node.getBoundingClientRect().width || node.offsetWidth || 1;
   const scale = TARGET_IMAGE_WIDTH_PX / cssWidth;
   const raw = await html2canvas(node, { scale, backgroundColor:null, useCORS:true, allowTaint:true });
-  // Edge-to-edge: no bezel — content is clipped directly to rounded
-  // corners and fills the output canvas exactly (same size as the capture).
-  const finished = applyRoundedBezel(raw, 0, Math.round(18 * scale));
+  // Ultra-thin white curved bezel — flat (no shadow/sheen), content still
+  // fills to the edge of that thin border with no other gap around it.
+  const finished = applyRoundedBezel(raw, Math.round(1.5 * scale), Math.round(18 * scale));
   return await new Promise(resolve => finished.toBlob(resolve, 'image/png'));
 }
 
@@ -1887,30 +1889,54 @@ function numberToWords(num){
 // Scans the clipboard for a mobile number (e.g. shared to you in a chat)
 // and, if found, fills it in — matching it against earlier saved orders to
 // also recover the customer's name if this number has billed before.
-// Reading the clipboard needs a secure context + a genuine user gesture,
-// so this is called from the phone field's onpointerdown (not its focus
-// handler) — an async function's body still runs synchronously up to its
-// first `await`, so calling navigator.clipboard.readText() from directly
-// inside the pointerdown/touchstart handler keeps that first call inside
-// the trusted-gesture call stack even though the field's own focus can
-// fire a beat later (or, on some browsers, not carry the same "real tap"
-// weight a raw pointerdown does). onfocus still calls the same function
-// too, as a harmless fallback for keyboard/tab-triggered focus.
-// Failures (unsupported browser, permission denied) are expected and stay
-// quiet; only an actual find (or a look-alike that doesn't check out) is logged.
+//
+// Triggering: a single tap on the field can fire several gesture-flavored
+// events in quick succession (pointerdown, touchstart, mousedown, focus).
+// Rather than picking just one and hoping it's the one this browser treats
+// as "real" user activation, every one of them is wired up (see
+// setupClipboardPhoneCapture below) and a busy-flag coalesces them so only
+// the first actually runs the check — the others are ignored, not errors.
+//
+// Diagnostics: clipboard access can fail for reasons outside our control
+// (no secure context, permission denied, unsupported browser). Those are
+// now logged with the real reason instead of failing silently, since a
+// silent failure is indistinguishable from "not tried at all".
+let clipboardScanBusy = false;
+function attemptClipboardScan(){
+  if(clipboardScanBusy) return;
+  clipboardScanBusy = true;
+  Promise.resolve(scanClipboardForPhone()).finally(() => {
+    setTimeout(() => { clipboardScanBusy = false; }, 600);
+  });
+}
+function setupClipboardPhoneCapture(){
+  const el = $('custPhone');
+  if(!el) return;
+  ['pointerdown','touchstart','mousedown','focus'].forEach(evt => {
+    el.addEventListener(evt, attemptClipboardScan, { passive: true });
+  });
+}
 async function scanClipboardForPhone(){
-  if($('custPhone').value.trim()) return; // don't overwrite a number that's already there
-  if(!navigator.clipboard || !navigator.clipboard.readText) return;
+  const phoneEl = $('custPhone');
+  if(!phoneEl || phoneEl.value.trim()) return; // don't overwrite a number that's already there
+  if(!navigator.clipboard || !navigator.clipboard.readText){
+    logMsg('Clipboard access is not available on this browser/app.', true);
+    return;
+  }
   let text;
-  try{ text = await navigator.clipboard.readText(); }
-  catch(e){ return; } // no permission / not a user gesture — silently skip
-  if(!text) return;
+  try{
+    text = await navigator.clipboard.readText();
+  }catch(e){
+    logMsg('Clipboard read blocked (' + (e && e.name ? e.name : 'permission denied') + ') — allow clipboard access if your browser asks, or paste the number in manually.', true);
+    return;
+  }
+  if(!text) return; // clipboard empty — nothing to do, not an error
   const match = text.match(/(\+?\d[\d\s-]{8,14}\d)/);
-  if(!match) return;
+  if(!match) return; // clipboard has content, just nothing phone-shaped — not an error
   const rawDigits = match[1].replace(/\D/g,'').slice(-13);
   const normalized = normalizePhone(rawDigits);
   if(!normalized){ logMsg('Clipboard has a number, but it does not look like a valid mobile number.', true); return; }
-  $('custPhone').value = rawDigits;
+  phoneEl.value = rawDigits;
   onPhoneInput();
   const known = (ordersCache || []).find(o => normalizePhone(o.custPhone || '') === normalized);
   if(known && known.custName){
@@ -2903,6 +2929,7 @@ ensureFreshBillIfEmpty();
 applyContentLock(false); // fresh page load = a new, immediately-editable bill
 renderOrderImage();
 setInterval(refreshOrderNo, 60000);
+setupClipboardPhoneCapture();
 scanClipboardForPhone();
 
 setTimeout(() => { const first = document.querySelector('#itemsBody tr'); if(first) openItemModal(first); }, 250);
