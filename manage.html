@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SREE FOUNDATION — Manage Fixed Values</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800;900&display=swap" rel="stylesheet" crossorigin="anonymous">
+<script type="module">
+  // Same Firebase project as index.html/bill.html — this page reads and
+  // writes the exact same config/* Firestore docs, so edits made here
+  // sync live (or on next load) back to the main billing app.
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+  import {
+    getFirestore, doc, setDoc, getDoc, enableIndexedDbPersistence
+  } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAtH3LTuNFUiPS7Kd5NF3YEg40pyXEI49A",
+    authDomain: "sree-foundation-order-app.firebaseapp.com",
+    projectId: "sree-foundation-order-app",
+    storageBucket: "sree-foundation-order-app.firebasestorage.app",
+    messagingSenderId: "289204055794",
+    appId: "1:289204055794:web:6a85cb0e10d3a6c9aaaa6b"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  enableIndexedDbPersistence(db).catch(() => {});
+
+  window.FB = { db, doc, setDoc, getDoc };
+  window.dispatchEvent(new Event('firebase-ready'));
+</script>
+<style>
+  :root{
+    --primary:#0B5E64; --primary-light:#E7F6F6; --accent:#FF9F1C; --bg-main:#EEF7F7;
+    --ink:#16262A; --danger:#c0392b; --ok:#1B8A4B; --white:#ffffff; --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:'Inter',sans-serif; background:var(--bg-main); color:var(--ink);
+    padding-bottom:60px;
+  }
+  header{
+    background:var(--primary); color:#fff; padding:14px 12px; text-align:center;
+    position:sticky; top:0; z-index:10;
+  }
+  header h1{ margin:0; font-size:16px; font-weight:900; }
+  header p{ margin:4px 0 0; font-size:11px; opacity:0.85; }
+  .tabs{
+    display:flex; overflow-x:auto; gap:4px; padding:8px; background:var(--white);
+    position:sticky; top:56px; z-index:9; border-bottom:1.5px solid var(--primary-light);
+  }
+  .tab-btn{
+    flex:0 0 auto; padding:8px 12px; border:1.5px solid var(--primary); border-radius:var(--radius);
+    background:var(--white); color:var(--primary); font-weight:800; font-size:12px; cursor:pointer;
+  }
+  .tab-btn.active{ background:var(--primary); color:#fff; }
+  main{ padding:12px; max-width:640px; margin:0 auto; }
+  .panel{ display:none; }
+  .panel.active{ display:block; }
+  .card{
+    background:var(--white); border-radius:var(--radius); padding:10px; margin-bottom:8px;
+    box-shadow:0 1px 4px rgba(0,0,0,0.08); display:flex; justify-content:space-between; align-items:center; gap:8px;
+  }
+  .card.is-disabled{ opacity:0.55; }
+  .card-info{ flex:1 1 auto; min-width:0; }
+  .card-title{ font-weight:800; font-size:14px; }
+  .card-sub{ font-size:12px; opacity:0.75; margin-top:2px; }
+  .card-actions{ display:flex; gap:6px; flex:0 0 auto; }
+  .icon-btn{
+    border:none; border-radius:8px; padding:6px 9px; font-size:13px; cursor:pointer; font-weight:800;
+  }
+  .icon-btn.edit{ background:var(--primary-light); color:var(--primary); }
+  .icon-btn.del{ background:#FFE5E5; color:var(--danger); }
+  .icon-btn.save{ background:var(--ok); color:#fff; }
+  .new-btn{
+    width:100%; padding:10px; margin-bottom:12px; border:1.5px dashed var(--primary);
+    border-radius:var(--radius); background:var(--primary-light); color:var(--primary);
+    font-weight:800; font-size:13px; cursor:pointer;
+  }
+  .form-box{
+    background:var(--white); border-radius:var(--radius); padding:12px; margin-bottom:12px;
+    box-shadow:0 1px 4px rgba(0,0,0,0.10); border:1.5px solid var(--primary-light);
+  }
+  .form-box label{ display:block; font-size:11px; font-weight:800; color:var(--primary); margin:8px 0 3px; }
+  .form-box input, .form-box textarea{
+    width:100%; padding:8px; border:1.5px solid #ccc; border-radius:8px; font-size:14px;
+    font-family:inherit; box-sizing:border-box;
+  }
+  .form-box textarea{ min-height:44px; resize:vertical; }
+  .form-actions{ display:flex; gap:8px; margin-top:10px; }
+  .form-actions button{
+    flex:1; padding:10px; border:none; border-radius:8px; font-weight:800; font-size:13px; cursor:pointer;
+  }
+  .btn-save{ background:var(--ok); color:#fff; }
+  .btn-cancel{ background:#eee; color:#333; }
+  .color-row{ display:flex; gap:6px; flex-wrap:wrap; }
+  .color-field{ flex:1 1 70px; }
+  .color-field input[type=color]{ width:100%; height:32px; padding:2px; border:1.5px solid #ccc; border-radius:6px; }
+  .swatch-row{ display:flex; gap:8px; margin-top:6px; }
+  .swatch{
+    flex:1; height:36px; border-radius:6px; display:flex; align-items:center; justify-content:center;
+    font-size:10px; font-weight:800; border:1px solid rgba(0,0,0,0.15);
+  }
+  #log{
+    position:fixed; left:0; right:0; bottom:0; background:rgba(255,255,255,0.97);
+    border-top:1.5px solid var(--primary); font-family:'Roboto Mono',monospace; font-size:11px;
+    max-height:70px; overflow-y:auto; padding:4px 8px; z-index:20;
+  }
+  #log div{ padding:1px 0; }
+  #log .err{ color:var(--danger); font-weight:700; }
+  .empty-note{ text-align:center; opacity:0.6; font-size:12px; padding:20px 0; }
+  .img-preview{ max-width:100%; border:1.5px solid var(--primary-light); border-radius:8px; margin-top:6px; display:block; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🗂 Manage Fixed Values</h1>
+  <p>SREE FOUNDATION — synced live to the billing app's cloud config</p>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" data-tab="items" onclick="switchTab('items')">📦 Items</button>
+  <button class="tab-btn" data-tab="receivers" onclick="switchTab('receivers')">💳 Payment Methods</button>
+  <button class="tab-btn" data-tab="themes" onclick="switchTab('themes')">🎨 Themes</button>
+  <button class="tab-btn" data-tab="settings" onclick="switchTab('settings')">⚙️ Settings</button>
+</div>
+
+<main>
+  <!-- ITEMS -->
+  <div id="panel-items" class="panel active">
+    <button class="new-btn" onclick="openItemForm(null)">➕ New Item</button>
+    <div id="itemsList"></div>
+  </div>
+
+  <!-- PAYMENT METHODS -->
+  <div id="panel-receivers" class="panel">
+    <button class="new-btn" onclick="openReceiverForm(null)">➕ New Payment Method</button>
+    <div id="receiversList"></div>
+  </div>
+
+  <!-- THEMES -->
+  <div id="panel-themes" class="panel">
+    <button class="new-btn" onclick="openThemeForm(null)">➕ New Theme</button>
+    <div id="themesList"></div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div id="panel-settings" class="panel">
+    <div class="form-box">
+      <label>Company Name</label>
+      <input id="setCompanyName" type="text" maxlength="60">
+      <label>Company Address</label>
+      <input id="setCompanyAddr" type="text" maxlength="120">
+      <label>Scan Note — English line 1</label>
+      <textarea id="setEn1"></textarea>
+      <label>Scan Note — Tamil line 1</label>
+      <textarea id="setTa1"></textarea>
+      <label>Scan Note — English line 2</label>
+      <textarea id="setEn2"></textarea>
+      <label>Scan Note — Tamil line 2</label>
+      <textarea id="setTa2"></textarea>
+      <label>QR Scan-Instructions Image (replaces the text lines above when set)</label>
+      <img id="setImgPreview" class="img-preview" style="display:none;">
+      <input id="setImgFile" type="file" accept="image/png,image/jpeg">
+      <div class="form-actions">
+        <button class="btn-save" onclick="saveSettings()">💾 Save Settings</button>
+        <button class="btn-cancel" onclick="clearScanNoteImage()">🗑 Clear Image</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div id="log"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+function log(msg, isErr){
+  const el = $('log');
+  const line = document.createElement('div');
+  if(isErr) line.className = 'err';
+  line.textContent = `[${new Date().toLocaleTimeString('en-IN',{hour12:false})}] ${msg}`;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function switchTab(name){
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  $('panel-' + name).classList.add('active');
+  document.querySelector(`.tab-btn[data-tab="${name}"]`).classList.add('active');
+}
+
+let ITEMS = [], RECEIVERS = [], THEMES = [], SETTINGS = { company:{name:'',address:''}, scanNote:{en1:'',ta1:'',en2:'',ta2:''}, scanNoteImage:'' };
+
+async function loadDoc(id){
+  const { db, doc, getDoc } = window.FB;
+  const snap = await getDoc(doc(db, 'config', id));
+  return snap.exists() ? snap.data() : null;
+}
+async function saveDoc(id, data){
+  const { db, doc, setDoc } = window.FB;
+  await setDoc(doc(db, 'config', id), data);
+}
+
+// ---------------- ITEMS ----------------
+async function loadItems(){
+  try{
+    const data = await loadDoc('items');
+    ITEMS = (data && Array.isArray(data.list)) ? data.list : [];
+    renderItems();
+    log(`Loaded ${ITEMS.length} item(s) from the cloud.`);
+  }catch(e){ log('Could not load items: ' + e.message, true); }
+}
+function renderItems(){
+  const box = $('itemsList');
+  if(!ITEMS.length){ box.innerHTML = '<div class="empty-note">No items yet.</div>'; return; }
+  box.innerHTML = ITEMS.map((it, i) => `
+    <div class="card">
+      <div class="card-info">
+        <div class="card-title">${esc(it.name)}</div>
+        <div class="card-sub">₹${it.rate} · MOQ ${it.moq}${it.freePerMoq ? ' · Free ' + it.freePerMoq + '/MOQ' : ''}</div>
+      </div>
+      <div class="card-actions">
+        <button class="icon-btn edit" onclick="openItemForm(${i})">✏️</button>
+        <button class="icon-btn del" onclick="deleteItem(${i})">🗑</button>
+      </div>
+    </div>`).join('');
+}
+function openItemForm(idx){
+  const it = idx != null ? ITEMS[idx] : { name:'', rate:'', moq:1, freePerMoq:0 };
+  const box = document.createElement('div');
+  box.className = 'form-box';
+  box.id = 'itemFormBox';
+  box.innerHTML = `
+    <label>Item Name</label><input id="fItemName" type="text" value="${esc(it.name)}">
+    <label>Rate (₹)</label><input id="fItemRate" type="number" step="0.01" value="${it.rate}">
+    <label>MOQ (minimum order qty)</label><input id="fItemMoq" type="number" value="${it.moq}">
+    <label>Free qty per MOQ (0 = none)</label><input id="fItemFree" type="number" value="${it.freePerMoq || 0}">
+    <div class="form-actions">
+      <button class="btn-save" onclick="submitItemForm(${idx})">💾 Save</button>
+      <button class="btn-cancel" onclick="closeForm('itemFormBox')">Cancel</button>
+    </div>`;
+  document.querySelector('#panel-items .new-btn').insertAdjacentElement('afterend', box);
+}
+async function submitItemForm(idx){
+  const name = $('fItemName').value.trim();
+  const rate = parseFloat($('fItemRate').value) || 0;
+  const moq = parseInt($('fItemMoq').value) || 1;
+  const freePerMoq = parseInt($('fItemFree').value) || 0;
+  if(!name){ log('Item name is required.', true); return; }
+  const entry = { name, rate, moq, freePerMoq };
+  if(idx != null) ITEMS[idx] = entry; else ITEMS.push(entry);
+  try{
+    await saveDoc('items', { list: ITEMS });
+    closeForm('itemFormBox');
+    renderItems();
+    log(`Saved item "${name}" to the cloud.`);
+  }catch(e){ log('Could not save item: ' + e.message, true); }
+}
+async function deleteItem(idx){
+  if(!confirm(`Delete "${ITEMS[idx].name}"? This cannot be undone.`)) return;
+  const name = ITEMS[idx].name;
+  ITEMS.splice(idx, 1);
+  try{
+    await saveDoc('items', { list: ITEMS });
+    renderItems();
+    log(`Deleted item "${name}".`);
+  }catch(e){ log('Could not delete item: ' + e.message, true); }
+}
+
+// ---------------- PAYMENT METHODS ----------------
+// "Delete" soft-hides (disabled:true) rather than removing, since saved
+// bills reference a payment method by its position in this list — the
+// same convention the main billing app already uses.
+async function loadReceivers(){
+  try{
+    const data = await loadDoc('receivers');
+    RECEIVERS = (data && Array.isArray(data.list)) ? data.list : [];
+    renderReceivers();
+    log(`Loaded ${RECEIVERS.length} payment method(s) from the cloud.`);
+  }catch(e){ log('Could not load payment methods: ' + e.message, true); }
+}
+function renderReceivers(){
+  const box = $('receiversList');
+  if(!RECEIVERS.length){ box.innerHTML = '<div class="empty-note">No payment methods yet.</div>'; return; }
+  box.innerHTML = RECEIVERS.map((r, i) => `
+    <div class="card${r.disabled ? ' is-disabled' : ''}">
+      <div class="card-info">
+        <div class="card-title">${esc(r.name)}${r.disabled ? ' (hidden)' : ''}</div>
+        <div class="card-sub">${r.upi ? esc(r.upi) : 'Cash / no UPI'}</div>
+      </div>
+      <div class="card-actions">
+        <button class="icon-btn edit" onclick="openReceiverForm(${i})">✏️</button>
+        <button class="icon-btn del" onclick="toggleReceiver(${i})">${r.disabled ? '👁 Show' : '🗑 Hide'}</button>
+      </div>
+    </div>`).join('');
+}
+function openReceiverForm(idx){
+  const r = idx != null ? RECEIVERS[idx] : { name:'', upi:'' };
+  const box = document.createElement('div');
+  box.className = 'form-box';
+  box.id = 'recvFormBox';
+  box.innerHTML = `
+    <label>Name</label><input id="fRecvName" type="text" value="${esc(r.name)}">
+    <label>UPI ID (leave blank for Cash)</label><input id="fRecvUpi" type="text" value="${esc(r.upi || '')}">
+    <div class="form-actions">
+      <button class="btn-save" onclick="submitReceiverForm(${idx})">💾 Save</button>
+      <button class="btn-cancel" onclick="closeForm('recvFormBox')">Cancel</button>
+    </div>`;
+  document.querySelector('#panel-receivers .new-btn').insertAdjacentElement('afterend', box);
+}
+async function submitReceiverForm(idx){
+  const name = $('fRecvName').value.trim();
+  const upi = $('fRecvUpi').value.trim();
+  if(!name){ log('Name is required.', true); return; }
+  const entry = idx != null ? { ...RECEIVERS[idx], name, upi: upi || null } : { name, upi: upi || null, disabled: false };
+  if(idx != null) RECEIVERS[idx] = entry; else RECEIVERS.push(entry);
+  try{
+    await saveDoc('receivers', { list: RECEIVERS });
+    closeForm('recvFormBox');
+    renderReceivers();
+    log(`Saved payment method "${name}" to the cloud.`);
+  }catch(e){ log('Could not save payment method: ' + e.message, true); }
+}
+async function toggleReceiver(idx){
+  RECEIVERS[idx].disabled = !RECEIVERS[idx].disabled;
+  try{
+    await saveDoc('receivers', { list: RECEIVERS });
+    renderReceivers();
+    log(`${RECEIVERS[idx].disabled ? 'Hid' : 'Restored'} "${RECEIVERS[idx].name}".`);
+  }catch(e){ log('Could not update payment method: ' + e.message, true); }
+}
+
+// ---------------- THEMES ----------------
+async function loadThemes(){
+  try{
+    const data = await loadDoc('themes');
+    THEMES = (data && Array.isArray(data.list)) ? data.list : [];
+    renderThemes();
+    log(`Loaded ${THEMES.length} theme(s) from the cloud.`);
+  }catch(e){ log('Could not load themes: ' + e.message, true); }
+}
+function renderThemes(){
+  const box = $('themesList');
+  if(!THEMES.length){ box.innerHTML = '<div class="empty-note">No themes yet.</div>'; return; }
+  box.innerHTML = THEMES.map((t, i) => `
+    <div class="card" style="flex-direction:column; align-items:stretch;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div class="card-title">${esc(t.name)}</div>
+        <div class="card-actions">
+          <button class="icon-btn edit" onclick="openThemeForm(${i})">✏️</button>
+          <button class="icon-btn del" onclick="deleteTheme(${i})">🗑</button>
+        </div>
+      </div>
+      <div class="swatch-row">
+        ${(t.rowColors || []).map((c, j) => `<div class="swatch" style="background:${c}; color:${(t.rowTextColors && t.rowTextColors[j]) || '#000'};">Row ${j+1}</div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+function openThemeForm(idx){
+  const t = idx != null ? THEMES[idx] : {
+    name:'', primary:'#0B5E64', primaryLight:'#E7F6F6', secondary:'#128C94', accent:'#FF9F1C', bgMain:'#EEF7F7',
+    rowColors:['#FFE5B4','#B4E7FF','#E5FFB4','#FFB4E5','#F5B4FF','#FFE5CC'],
+    rowTextColors:['#16262A','#16262A','#16262A','#16262A','#16262A','#16262A']
+  };
+  const box = document.createElement('div');
+  box.className = 'form-box';
+  box.id = 'themeFormBox';
+  const rowFields = [0,1,2,3,4,5].map(j => `
+    <div class="color-field">
+      <label>Row ${j+1}</label>
+      <input type="color" id="fThemeRow${j}" value="${t.rowColors[j] || '#ffffff'}">
+      <input type="color" id="fThemeRowText${j}" value="${(t.rowTextColors && t.rowTextColors[j]) || '#16262A'}" style="margin-top:3px;">
+    </div>`).join('');
+  box.innerHTML = `
+    <label>Theme Name</label><input id="fThemeName" type="text" value="${esc(t.name)}">
+    <div class="color-row">
+      <div class="color-field"><label>Primary</label><input type="color" id="fThemePrimary" value="${t.primary}"></div>
+      <div class="color-field"><label>Primary Light</label><input type="color" id="fThemePrimaryLight" value="${t.primaryLight}"></div>
+      <div class="color-field"><label>Secondary</label><input type="color" id="fThemeSecondary" value="${t.secondary}"></div>
+      <div class="color-field"><label>Accent</label><input type="color" id="fThemeAccent" value="${t.accent}"></div>
+      <div class="color-field"><label>Background</label><input type="color" id="fThemeBg" value="${t.bgMain}"></div>
+    </div>
+    <label style="margin-top:10px;">Row colors (top) &amp; matching label text color (bottom)</label>
+    <div class="color-row">${rowFields}</div>
+    <div class="form-actions">
+      <button class="btn-save" onclick="submitThemeForm(${idx})">💾 Save</button>
+      <button class="btn-cancel" onclick="closeForm('themeFormBox')">Cancel</button>
+    </div>`;
+  document.querySelector('#panel-themes .new-btn').insertAdjacentElement('afterend', box);
+}
+async function submitThemeForm(idx){
+  const name = $('fThemeName').value.trim();
+  if(!name){ log('Theme name is required.', true); return; }
+  const rowColors = [0,1,2,3,4,5].map(j => $(`fThemeRow${j}`).value);
+  const rowTextColors = [0,1,2,3,4,5].map(j => $(`fThemeRowText${j}`).value);
+  const entry = {
+    name,
+    primary: $('fThemePrimary').value, primaryLight: $('fThemePrimaryLight').value,
+    secondary: $('fThemeSecondary').value, accent: $('fThemeAccent').value, bgMain: $('fThemeBg').value,
+    rowColors, rowTextColors
+  };
+  if(idx != null) THEMES[idx] = entry; else THEMES.push(entry);
+  try{
+    await saveDoc('themes', { list: THEMES });
+    closeForm('themeFormBox');
+    renderThemes();
+    log(`Saved theme "${name}" to the cloud.`);
+  }catch(e){ log('Could not save theme: ' + e.message, true); }
+}
+async function deleteTheme(idx){
+  if(THEMES.length <= 1){ log('At least one theme must remain.', true); return; }
+  if(!confirm(`Delete theme "${THEMES[idx].name}"?`)) return;
+  const name = THEMES[idx].name;
+  THEMES.splice(idx, 1);
+  try{
+    await saveDoc('themes', { list: THEMES });
+    renderThemes();
+    log(`Deleted theme "${name}".`);
+  }catch(e){ log('Could not delete theme: ' + e.message, true); }
+}
+
+// ---------------- SETTINGS ----------------
+async function loadSettings(){
+  try{
+    const company = await loadDoc('company');
+    const scanNote = await loadDoc('scanNote');
+    const scanNoteImage = await loadDoc('scanNoteImage');
+    if(company) SETTINGS.company = { name: company.name || '', address: company.address || '' };
+    if(scanNote) SETTINGS.scanNote = { en1: scanNote.en1||'', ta1: scanNote.ta1||'', en2: scanNote.en2||'', ta2: scanNote.ta2||'' };
+    if(scanNoteImage) SETTINGS.scanNoteImage = scanNoteImage.img || '';
+    $('setCompanyName').value = SETTINGS.company.name;
+    $('setCompanyAddr').value = SETTINGS.company.address;
+    $('setEn1').value = SETTINGS.scanNote.en1;
+    $('setTa1').value = SETTINGS.scanNote.ta1;
+    $('setEn2').value = SETTINGS.scanNote.en2;
+    $('setTa2').value = SETTINGS.scanNote.ta2;
+    if(SETTINGS.scanNoteImage){
+      $('setImgPreview').src = SETTINGS.scanNoteImage;
+      $('setImgPreview').style.display = 'block';
+    }
+    log('Loaded settings from the cloud.');
+  }catch(e){ log('Could not load settings: ' + e.message, true); }
+}
+$('setImgFile').addEventListener('change', () => {
+  const file = $('setImgFile').files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    SETTINGS.scanNoteImage = reader.result;
+    $('setImgPreview').src = reader.result;
+    $('setImgPreview').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+});
+function clearScanNoteImage(){
+  SETTINGS.scanNoteImage = '';
+  $('setImgPreview').style.display = 'none';
+  $('setImgFile').value = '';
+}
+async function saveSettings(){
+  SETTINGS.company = { name: $('setCompanyName').value.trim(), address: $('setCompanyAddr').value.trim() };
+  SETTINGS.scanNote = {
+    en1: $('setEn1').value.trim(), ta1: $('setTa1').value.trim(),
+    en2: $('setEn2').value.trim(), ta2: $('setTa2').value.trim()
+  };
+  try{
+    await saveDoc('company', SETTINGS.company);
+    await saveDoc('scanNote', SETTINGS.scanNote);
+    await saveDoc('scanNoteImage', { img: SETTINGS.scanNoteImage || '' });
+    log('Settings saved to the cloud.');
+  }catch(e){ log('Could not save settings: ' + e.message, true); }
+}
+
+function closeForm(id){ const el = $(id); if(el) el.remove(); }
+
+window.addEventListener('firebase-ready', () => {
+  loadItems();
+  loadReceivers();
+  loadThemes();
+  loadSettings();
+});
+</script>
+</body>
+</html>
