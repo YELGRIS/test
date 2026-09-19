@@ -43,6 +43,8 @@
     --primary:#0B5E64; --primary-light:#E7F6F6; --secondary:#128C94; --accent:#FF9F1C; --bg-main:#EEF7F7;
     --shadow-color:rgba(11,94,100,0.35); --ink:#16262A; --danger:#c0392b; --white:#ffffff;
     --row-1:#FFE5B4; --row-2:#B4E7FF; --row-3:#E5FFB4; --row-4:#FFB4E5; --row-5:#F5B4FF; --row-6:#FFE5CC;
+    --row-1-text:var(--ink); --row-2-text:var(--ink); --row-3-text:var(--ink);
+    --row-4-text:var(--ink); --row-5-text:var(--ink); --row-6-text:var(--ink);
     --row-subtotal:#FFD34D;
     --radius:10px;
   }
@@ -122,12 +124,12 @@
   table.items thead th:last-child{border-radius:0;}
   table.items td{border:1px solid #d8e6e6; padding:2px 1px; text-align:center; vertical-align:middle;}
   
-  table.items tbody tr:nth-child(6n+1) td{background:var(--row-1);}
-  table.items tbody tr:nth-child(6n+2) td{background:var(--row-2);}
-  table.items tbody tr:nth-child(6n+3) td{background:var(--row-3);}
-  table.items tbody tr:nth-child(6n+4) td{background:var(--row-4);}
-  table.items tbody tr:nth-child(6n+5) td{background:var(--row-5);}
-  table.items tbody tr:nth-child(6n+0) td{background:var(--row-6);}
+  table.items tbody tr:nth-child(6n+1) td{background:var(--row-1); color:var(--row-1-text);}
+  table.items tbody tr:nth-child(6n+2) td{background:var(--row-2); color:var(--row-2-text);}
+  table.items tbody tr:nth-child(6n+3) td{background:var(--row-3); color:var(--row-3-text);}
+  table.items tbody tr:nth-child(6n+4) td{background:var(--row-4); color:var(--row-4-text);}
+  table.items tbody tr:nth-child(6n+5) td{background:var(--row-5); color:var(--row-5-text);}
+  table.items tbody tr:nth-child(6n+0) td{background:var(--row-6); color:var(--row-6-text);}
   
   /* Widths proportional to field character widths: Sr.No 1, Description 25, Qty 5, Free 3, Rate 6, Amount 7 (47 total) — Qty/Free/Rate then widened 20% further, taken from Description */
   table.items th:nth-child(1), table.items td:nth-child(1){width:2.13%;}
@@ -491,7 +493,7 @@
   .modal-box h3{font-family:'Baloo 2',sans-serif; color:var(--primary); margin:0; padding:8px 8px 3px; font-size:18px;}
   .modal-box > .field-hint{padding:0 8px; margin-bottom:3px;}
   .modal-box ol{padding:6px 8px 6px 22px; font-size:14px; line-height:1.35; margin:0;}
-  .modal-box button.close-btn{margin:6px 6px; background:var(--primary); color:#fff; border:none; border-radius:var(--radius); padding:8px 14px; font-weight:800; font-size:14px; cursor:pointer;}
+  .modal-box button.close-btn, .modal-box a.close-btn{margin:6px 6px; background:var(--primary); color:#fff; border:none; border-radius:var(--radius); padding:8px 14px; font-weight:800; font-size:14px; cursor:pointer;}
   
   .qty-grid{display:grid; grid-template-columns:repeat(5, 1fr); gap:1px; margin:0 1px;}
   .qty-grid button{border:1.5px solid var(--primary); border-radius:5px; padding:10px 1px; font-weight:900; font-size:19px; cursor:pointer; transition:transform 0.1s;}
@@ -533,7 +535,7 @@
   .manage-del-btn{background:#FDECEA; color:var(--danger);}
   .manage-toggle-btn{background:#FFF3E0; color:#A65300; font-size:12px !important;}
   .modal-actions{display:flex; flex-wrap:wrap; gap:6px; margin:6px 6px 6px;}
-  .modal-actions button.close-btn{flex:1 1 100px; margin:0; min-width:0; font-size:12.5px; padding:8px 6px; white-space:normal; line-height:1.15; text-align:center;}
+  .modal-actions button.close-btn, .modal-actions a.close-btn{flex:1 1 100px; margin:0; min-width:0; font-size:12.5px; padding:8px 6px; white-space:normal; line-height:1.15; text-align:center;}
   .modal-actions button.close-btn.finish-btn{flex:1 1 140px; margin-top:0; font-size:13px;}
   .custom-item-box{display:flex; gap:0; margin:2px 4px 4px; flex:0 0 auto;}
   .custom-item-box input{flex:1;}
@@ -791,6 +793,10 @@
     <div class="modal-actions">
       <button type="button" class="close-btn" onclick="toggleModal('helpModal', false); openManageItemsModal();">🛠 Manage Items</button>
       <button type="button" class="close-btn" onclick="toggleModal('helpModal', false); openManagePaymentModal();">💳 Manage Payment Methods</button>
+      <a class="close-btn" href="manage.html" target="_blank" rel="noopener" style="text-decoration:none; display:inline-block;">🗂 Manage Fixed Values</a>
+      <button type="button" class="close-btn" onclick="backupCloudData()">☁️⬇️ Backup Cloud Data to Device</button>
+      <button type="button" class="close-btn" onclick="triggerRestorePicker()">☁️⬆️ Restore Cloud Data from Backup</button>
+      <input type="file" id="restoreFileInput" accept="application/json,.json" style="display:none;" onchange="restoreCloudData(event)">
       <button class="close-btn" onclick="toggleModal('helpModal', false)">Close</button>
     </div>
   </div>
@@ -1000,43 +1006,60 @@ let THEME = {};
 // used as text or button colour on the app's white/light backgrounds.
 // primaryLight/bgMain/rowColors stay pale since they're only ever
 // backgrounds, painted under the dark --ink text colour.
-const STORED_THEMES = [
+let STORED_THEMES = [
   {
     name: 'Tropical Sunset',
     primary: '#C1440E', primaryLight: '#FFE5CC', secondary: '#A85A00', accent: '#CC5F00',
-    bgMain: '#FFF8F0', rowColors: ['#FFE5B4', '#B4E7FF', '#E5FFB4', '#FFB4E5', '#F5B4FF', '#FFE5CC']
+    bgMain: '#FFF8F0', rowColors: ['#FFE5B4', '#B4E7FF', '#E5FFB4', '#FFB4E5', '#F5B4FF', '#FFE5CC'],
+    rowTextColors: ['#16262A', '#16262A', '#16262A', '#16262A', '#16262A', '#16262A']
   },
   {
     name: 'Ocean Breeze',
     primary: '#00618C', primaryLight: '#CAF0F8', secondary: '#00728F', accent: '#007A96',
-    bgMain: '#F0F9FF', rowColors: ['#B4E7FF', '#E5FFB4', '#FFB4E5', '#F5B4FF', '#FFE5CC', '#FFE5B4']
+    bgMain: '#F0F9FF', rowColors: ['#B4E7FF', '#E5FFB4', '#FFB4E5', '#F5B4FF', '#FFE5CC', '#FFE5B4'],
+    rowTextColors: ['#16262A', '#16262A', '#16262A', '#16262A', '#16262A', '#16262A']
   },
   {
     name: 'Forest Garden',
     primary: '#2D6A4F', primaryLight: '#D8F3DC', secondary: '#2F7A52', accent: '#5C8A3A',
-    bgMain: '#F1FAEE', rowColors: ['#E5FFB4', '#FFB4E5', '#F5B4FF', '#FFE5CC', '#FFE5B4', '#B4E7FF']
+    bgMain: '#F1FAEE', rowColors: ['#E5FFB4', '#FFB4E5', '#F5B4FF', '#FFE5CC', '#FFE5B4', '#B4E7FF'],
+    rowTextColors: ['#16262A', '#16262A', '#16262A', '#16262A', '#16262A', '#16262A']
   },
   {
     name: 'Berry Blast',
     primary: '#A4161A', primaryLight: '#FFE5E5', secondary: '#C1121F', accent: '#D33F49',
-    bgMain: '#FFF0F1', rowColors: ['#FFB4E5', '#F5B4FF', '#FFE5CC', '#FFE5B4', '#B4E7FF', '#E5FFB4']
+    bgMain: '#FFF0F1', rowColors: ['#FFB4E5', '#F5B4FF', '#FFE5CC', '#FFE5B4', '#B4E7FF', '#E5FFB4'],
+    rowTextColors: ['#16262A', '#16262A', '#16262A', '#16262A', '#16262A', '#16262A']
   },
   {
     name: 'Golden Harmony',
     primary: '#8A6D1B', primaryLight: '#FFF8DC', secondary: '#8F6508', accent: '#B4700A',
-    bgMain: '#FFFAF0', rowColors: ['#F5B4FF', '#FFE5CC', '#FFE5B4', '#B4E7FF', '#E5FFB4', '#FFB4E5']
+    bgMain: '#FFFAF0', rowColors: ['#F5B4FF', '#FFE5CC', '#FFE5B4', '#B4E7FF', '#E5FFB4', '#FFB4E5'],
+    rowTextColors: ['#16262A', '#16262A', '#16262A', '#16262A', '#16262A', '#16262A']
   },
   {
     name: 'Purple Dreams',
     primary: '#6A0572', primaryLight: '#F0E6F6', secondary: '#8A2BE2', accent: '#9B3FD1',
-    bgMain: '#FBF6FF', rowColors: ['#FFE5CC', '#FFE5B4', '#B4E7FF', '#E5FFB4', '#FFB4E5', '#F5B4FF']
+    bgMain: '#FBF6FF', rowColors: ['#FFE5CC', '#FFE5B4', '#B4E7FF', '#E5FFB4', '#FFB4E5', '#F5B4FF'],
+    rowTextColors: ['#16262A', '#16262A', '#16262A', '#16262A', '#16262A', '#16262A']
+  },
+  {
+    // From the "glossy app-icon" 9-color swatch: three deep, saturated
+    // tones anchor the UI chrome (primary/secondary/accent), the other
+    // six become the item-row stripes — each with its own contrasting
+    // label color instead of one fixed dark ink for every row.
+    name: 'Color Blocks',
+    primary: '#1063B1', primaryLight: '#E4F0FB', secondary: '#01BDA5', accent: '#F17722',
+    bgMain: '#F5F9FC',
+    rowColors:     ['#34B6E8', '#C82101', '#98AA00', '#7B277C', '#FFB600', '#F66EB0'],
+    rowTextColors: ['#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#2B1A00', '#3A0A1E']
   }
 ];
 
 function applyRandomTheme(){
   const themeIdx = Math.floor(Math.random() * STORED_THEMES.length);
   const theme = STORED_THEMES[themeIdx];
-  THEME = { name: theme.name, primary: theme.primary };
+  THEME = { name: theme.name, primary: theme.primary, rowColors: theme.rowColors, rowTextColors: theme.rowTextColors };
   const r = document.documentElement.style;
   r.setProperty('--primary', theme.primary);
   r.setProperty('--primary-light', theme.primaryLight);
@@ -1049,14 +1072,27 @@ function applyRandomTheme(){
   r.setProperty('--row-4', theme.rowColors[3]);
   r.setProperty('--row-5', theme.rowColors[4]);
   r.setProperty('--row-6', theme.rowColors[5]);
+  // Contrasting label color per row color — e.g. dark text on a pale
+  // pastel row, white text on a deep/saturated one — falls back to the
+  // usual ink color for older themes that don't specify their own.
+  const rtc = theme.rowTextColors || [];
+  r.setProperty('--row-1-text', rtc[0] || 'var(--ink)');
+  r.setProperty('--row-2-text', rtc[1] || 'var(--ink)');
+  r.setProperty('--row-3-text', rtc[2] || 'var(--ink)');
+  r.setProperty('--row-4-text', rtc[3] || 'var(--ink)');
+  r.setProperty('--row-5-text', rtc[4] || 'var(--ink)');
+  r.setProperty('--row-6-text', rtc[5] || 'var(--ink)');
   const hue = parseInt(theme.primary.slice(1), 16);
   r.setProperty('--shadow-color', `rgba(${(hue >> 16) & 255}, ${(hue >> 8) & 255}, ${hue & 255}, 0.35)`);
 }
 
 function getRandomDynamicRowStyle(sno){
   const rowColors = THEME.rowColors || ['#FFE5B4', '#B4E7FF', '#E5FFB4', '#FFB4E5', '#F5B4FF', '#FFE5CC'];
-  const color = rowColors[sno % rowColors.length];
-  return `background-color: ${color};`;
+  const rowTextColors = THEME.rowTextColors || [];
+  const i = sno % rowColors.length;
+  const color = rowColors[i];
+  const textColor = rowTextColors[i] || '#16262A';
+  return `background-color: ${color}; color: ${textColor};`;
 }
 
 function setDefaultDate(){
@@ -1643,6 +1679,7 @@ function togglePaymentDisabled(idx){
 const LS_ITEMS_KEY = 'sf_items_v1';
 const LS_RECEIVERS_KEY = 'sf_receivers_v1';
 const LS_SETTINGS_KEY = 'sf_settings_v1';
+const LS_THEMES_KEY = 'sf_themes_v1';
 
 function loadItemsAndReceivers(){
   try{
@@ -1671,6 +1708,14 @@ function loadItemsAndReceivers(){
     }
   }catch(e){ /* storage unavailable — will still pick up cloud data once online */ }
 
+  try{
+    const savedThemes = localStorage.getItem(LS_THEMES_KEY);
+    if(savedThemes){
+      const parsed = JSON.parse(savedThemes);
+      if(Array.isArray(parsed) && parsed.length) STORED_THEMES = parsed;
+    }
+  }catch(e){ /* storage unavailable — falls back to the built-in default themes */ }
+
   warnIfConfigEmpty();
 }
 
@@ -1697,6 +1742,119 @@ function pushConfigDocToCloud(docId, data){
   if(!window.FB) return;
   const { db, doc, setDoc } = window.FB;
   setDoc(doc(db, 'config', docId), data, { merge: true }).catch(() => {});
+}
+// Full-replace variant (no merge) — used by restoreCloudData so a
+// restored doc exactly matches the backup, including fields/entries the
+// backup no longer has (a plain merge would leave those stray).
+function replaceConfigDocInCloud(docId, data){
+  if(!window.FB) return Promise.resolve();
+  const { db, doc, setDoc } = window.FB;
+  return setDoc(doc(db, 'config', docId), data);
+}
+
+// ---- Cloud backup / restore (Help screen) ----
+// Backup: reads every config/* doc straight from Firestore (not just
+// whatever's currently cached in CONFIG, so it reflects the true cloud
+// state) and saves them as one JSON file to the device. Restore: the
+// reverse — reads a previously-saved file and writes each piece back to
+// Firestore, then refreshes the in-memory CONFIG/localStorage/UI so the
+// change is visible immediately on this device too, not just the cloud.
+const BACKUP_DOC_IDS = ['items', 'receivers', 'settings', 'company', 'scanNote', 'scanNoteImage', 'themes'];
+
+async function backupCloudData(){
+  if(!window.FB){ logMsg('Not connected to the cloud — cannot back up.', true); return; }
+  const { db, doc, getDoc } = window.FB;
+  logMsg('Starting cloud backup…');
+  const backup = { _backup: 'SREE FOUNDATION billing app', _version: 1, _savedAt: new Date().toISOString(), config: {} };
+  for(const id of BACKUP_DOC_IDS){
+    try{
+      const snap = await getDoc(doc(db, 'config', id));
+      backup.config[id] = snap.exists() ? snap.data() : null;
+    }catch(e){
+      backup.config[id] = null;
+      logMsg(`Backup: could not read config/${id} (${e.message})`, true);
+    }
+  }
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  a.href = url;
+  a.download = `sree-foundation-backup-${stamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  logMsg('Backup saved to your device.');
+}
+
+function triggerRestorePicker(){
+  const el = $('restoreFileInput');
+  if(el) el.click();
+}
+
+async function restoreCloudData(event){
+  const file = event.target.files && event.target.files[0];
+  event.target.value = ''; // so picking the same file again later still fires 'change'
+  if(!file) return;
+  if(!window.FB){ logMsg('Not connected to the cloud — cannot restore.', true); return; }
+
+  let backup;
+  try{
+    backup = JSON.parse(await file.text());
+  }catch(e){
+    logMsg('Restore failed: that file is not valid backup JSON.', true);
+    return;
+  }
+  if(!backup || !backup.config){
+    logMsg('Restore failed: this does not look like a SREE FOUNDATION backup file.', true);
+    return;
+  }
+
+  const when = backup._savedAt ? new Date(backup._savedAt).toLocaleString() : 'an unknown time';
+  const ok = confirm(`Restore cloud data from the backup taken ${when}?\n\nThis will overwrite items, payment methods, company/scan-note settings and themes — on the cloud and on this device.`);
+  if(!ok){ logMsg('Restore cancelled.'); return; }
+
+  logMsg('Restoring backup to the cloud…');
+  const cfg = backup.config;
+  for(const id of BACKUP_DOC_IDS){
+    const data = cfg[id];
+    if(data == null) continue; // that doc didn't exist at backup time — skip rather than wipe it
+    try{ await replaceConfigDocInCloud(id, data); }
+    catch(e){ logMsg(`Restore: could not write config/${id} (${e.message})`, true); }
+  }
+
+  // Reflect the restored data locally right away, instead of waiting for
+  // the next reload or a live listener to pick it up.
+  if(cfg.items && Array.isArray(cfg.items.list)){
+    CONFIG.items = cfg.items.list;
+    try{ localStorage.setItem(LS_ITEMS_KEY, JSON.stringify(CONFIG.items)); }catch(e){}
+  }
+  if(cfg.receivers && Array.isArray(cfg.receivers.list)){
+    CONFIG.receivers = cfg.receivers.list;
+    try{ localStorage.setItem(LS_RECEIVERS_KEY, JSON.stringify(CONFIG.receivers)); }catch(e){}
+  }
+  if(cfg.settings){
+    if(cfg.settings.company) CONFIG.company = cfg.settings.company;
+    if(cfg.settings.scanNote) CONFIG.scanNote = cfg.settings.scanNote;
+  }
+  if(cfg.company && (cfg.company.name || cfg.company.address)) CONFIG.company = cfg.company;
+  if(cfg.scanNote) CONFIG.scanNote = cfg.scanNote;
+  if(cfg.scanNoteImage){
+    const img = cfg.scanNoteImage.img || cfg.scanNoteImage.scanNoteImage;
+    if(img) CONFIG.scanNoteImage = img;
+  }
+  if(cfg.themes && Array.isArray(cfg.themes.list) && cfg.themes.list.length){
+    STORED_THEMES = cfg.themes.list;
+    try{ localStorage.setItem(LS_THEMES_KEY, JSON.stringify(STORED_THEMES)); }catch(e){}
+  }
+  try{ localStorage.setItem(LS_SETTINGS_KEY, JSON.stringify({ company: CONFIG.company, scanNote: CONFIG.scanNote, scanNoteImage: CONFIG.scanNoteImage })); }catch(e){}
+
+  renderPaymentRows();
+  buildRows();
+  applyRandomTheme();
+  scheduleUpdate();
+  logMsg('Restore complete — cloud and this device now match the backup.');
 }
 
 let configUnsubscribers = [];
@@ -1790,6 +1948,26 @@ async function loadConfigOnce(){
       if(img) CONFIG.scanNoteImage = img;
     }
   }catch(e){ console.error('[config sync] scanNoteImage error', e); }
+
+  // Theme palette — rarely edited (only via manage.html), so one-time read
+  // like the settings docs above rather than a live listener.
+  try{
+    const snap = await getDoc(doc(db, 'config', 'themes'));
+    if(snap.exists()){
+      const list = snap.data().list;
+      if(Array.isArray(list) && list.length){
+        STORED_THEMES = list;
+        try{ localStorage.setItem(LS_THEMES_KEY, JSON.stringify(STORED_THEMES)); }catch(e){}
+      } else {
+        // Cloud doc doesn't exist yet (or is empty) — seed it with this
+        // build's current default palette so future loads (and
+        // manage.html) have something to read and edit.
+        pushConfigDocToCloud('themes', { list: STORED_THEMES });
+      }
+    } else {
+      pushConfigDocToCloud('themes', { list: STORED_THEMES });
+    }
+  }catch(e){ console.error('[config sync] themes error', e); }
 
   saveSettingsLocal();
   scheduleUpdate();
