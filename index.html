@@ -45,6 +45,8 @@ font-family:'Inter',sans-serif; color:var(--ink); min-height:100vh; display:flex
 font-size:16px;
 }
 .topbar{width:100%; display:flex; justify-content:space-between; align-items:center; gap:0; margin-bottom:0; position:relative;}
+.help-lang-row{display:flex; gap:8px; margin:10px 6px 0;}
+.help-lang-row button, .help-lang-row a{flex:1; text-align:center; text-decoration:none; box-sizing:border-box;}
 .tb-side{display:flex; flex-direction:column; align-items:flex-start; flex:0 0 auto;}
 .tb-side.tb-right{align-items:flex-end;}
 .tb-side input{border:none; border-radius:var(--radius); padding:6px; font-size:14px; font-weight:800; background:rgba(255,255,255,0.95); color:var(--ink); cursor:pointer;}
@@ -413,11 +415,12 @@ button.finish-btn{background:var(--accent); color:#1a1200; margin-top:4px; font-
 </style>
 </head>
 <body>
+<div id="cloudStatusBanner" style="display:none; background:#FFF3E0; color:#8a4b00; padding:8px 10px; font-size:11.5px; font-weight:700; text-align:center; border-bottom:2px solid #FFB300;">⚠️ Not connected to the cloud yet — bills still save on this device, but won't sync. If this file was opened directly from your computer rather than a website, that's usually why.</div>
 <div class="topbar">
 <div class="tb-side">
 <input type="date" id="orderDate" tabindex="1" onchange="refreshOrderNo(); scheduleUpdate();" onkeydown="handleEnterFocus(event, 'orderNo')" onclick="this.showPicker?.(); this.click();">
 </div>
-<button id="helpBtn" onclick="toggleModal('helpModal', true)"><span>❓</span><span>Help</span></button>
+<button id="helpBtn" onclick="toggleModal('helpModal', true)"><span>❓</span><span data-i18n="helpBtnLabel">Help</span></button>
 <div class="tb-side tb-right">
 <div class="ordnav">
 <button type="button" class="ordnav-btn" tabindex="-1" title="Older bill" onclick="cycleOrder(1)">‹</button>
@@ -428,18 +431,18 @@ button.finish-btn{background:var(--accent); color:#1a1200; margin-top:4px; font-
 </div>
 <div class="editor">
 <div class="row2" style="margin-bottom:0; position:relative;">
-<input type="text" id="custName" tabindex="3" maxlength="20" placeholder="Customer name (max 20)" oninput="scheduleUpdate(); showCustomerSuggestions('name');" onfocus="this.select()" onblur="onCustNameBlur()" onkeydown="handleEnterFocus(event, 'custPhone')">
-<input type="tel" id="custPhone" tabindex="4" maxlength="13" placeholder="Mobile (13 digits)" style="flex:0 0 130px; border-radius:var(--radius);" oninput="onPhoneInput(); showCustomerSuggestions('phone');" onfocus="this.select()" onblur="hideCustomerSuggestionsDelayed(); logPhoneValidation();" onkeydown="handleEnterFocus(event, 'desc_row_1')">
+<input type="text" id="custName" tabindex="3" maxlength="20" data-i18n-placeholder="custNamePlaceholder" placeholder="Customer name (max 20)" oninput="scheduleUpdate(); showCustomerSuggestions('name');" onfocus="this.select()" onblur="onCustNameBlur()" onkeydown="handleEnterFocus(event, 'custPhone')">
+<input type="tel" id="custPhone" tabindex="4" maxlength="13" data-i18n-placeholder="custPhonePlaceholder" placeholder="Mobile (13 digits)" style="flex:0 0 130px; border-radius:var(--radius);" oninput="onPhoneInput(); showCustomerSuggestions('phone');" onfocus="this.select()" onblur="hideCustomerSuggestionsDelayed(); logPhoneValidation();" onkeydown="handleEnterFocus(event, 'desc_row_1')">
 <div id="custSuggestBox" class="suggest-box" style="display:none;"></div>
 </div>
-<div class="field-hint" id="phoneHint" style="margin-bottom:0;">Optional — required only to send on WhatsApp</div>
+<div class="field-hint" id="phoneHint" data-i18n="phoneHint" style="margin-bottom:0;">Optional — required only to send on WhatsApp</div>
 <table class="items">
-<thead><tr><th>#</th><th>Item</th><th>Qty</th><th>Free</th><th>Rate</th><th>Amt</th></tr></thead>
+<thead><tr><th data-i18n="thHash">#</th><th data-i18n="thItem">Item</th><th data-i18n="thQty">Qty</th><th data-i18n="thFree">Free</th><th data-i18n="thRate">Rate</th><th data-i18n="thAmt">Amt</th></tr></thead>
 <tbody id="itemsBody"></tbody>
 <tfoot>
 <tr style="background:var(--row-subtotal); font-weight:900; font-size:14px;">
 <td id="footerItemCount" style="text-align:center; padding:6px 2px;">0</td>
-<td style="text-align:left; padding:6px 4px;">Count & Sub Total</td>
+<td data-i18n="footerLabel" style="text-align:left; padding:6px 4px;">Count & Sub Total</td>
 <td id="footerQty" style="text-align:center;">0</td>
 <td id="footerFree" style="text-align:center;">-</td>
 <td id="footerRateSum" style="text-align:center;">-</td>
@@ -447,13 +450,13 @@ button.finish-btn{background:var(--accent); color:#1a1200; margin-top:4px; font-
 </tr>
 </tfoot>
 </table>
-<div class="field-hint">Rate & Free quantities are auto-filled and skipped by default — tap manually to alter them.</div>
+<div class="field-hint" data-i18n="rateHint">Rate & Free quantities are auto-filled and skipped by default — tap manually to alter them.</div>
 <div class="discount-row" style="margin-top:0;">
-<input type="text" id="discountLabel" tabindex="31" maxlength="25" placeholder="Discount" onfocus="this.select()" onkeydown="handleEnterFocus(event, 'discountVal')">
+<input type="text" id="discountLabel" tabindex="31" maxlength="25" data-i18n-placeholder="discountPlaceholder" placeholder="Discount" onfocus="this.select()" onkeydown="handleEnterFocus(event, 'discountVal')">
 <button type="button" id="discountOp" tabindex="-1" data-op="-" onclick="toggleDiscountOp()">−</button>
 <input type="number" id="discountVal" tabindex="32" value="0" min="0" max="9999999" oninput="limit7Digits(this); scheduleUpdate();" onfocus="this.select()" onkeydown="handleEnterFocus(event, 'payAmountInput_0')">
 </div>
-<div class="field-hint">Amount to add or subtract from the subtotal</div>
+<div class="field-hint" data-i18n="discountHint">Amount to add or subtract from the subtotal</div>
 <div class="totals">
 <div class="trow grand">
 <span class="amount-words-container" id="edAmountWords">Order Value: Rupees Zero Only</span>
@@ -461,10 +464,10 @@ button.finish-btn{background:var(--accent); color:#1a1200; margin-top:4px; font-
 </div>
 </div>
 <div class="words" id="edPaymentBreakdown" style="display:none;"><b>Payment methods</b><div id="edPaymentBreakdownRows"></div></div>
-<label style="margin-top:0">Payment Allocation</label>
+<label style="margin-top:0" data-i18n="paymentAllocLabel">Payment Allocation</label>
 <div id="paymentRowsContainer"></div>
-<button type="button" class="add-pay-btn" onclick="addPaymentRow()">+ Add Payment Method</button>
-<div class="field-hint" id="paymentStatus">Add items to determine the order amount.</div>
+<button type="button" class="add-pay-btn" data-i18n="addPayBtn" onclick="addPaymentRow()">+ Add Payment Method</button>
+<div class="field-hint" id="paymentStatus" data-i18n="paymentStatusDefault">Add items to determine the order amount.</div>
 <div id="paymentQrPreview" class="payment-qr-preview"></div>
 </div>
 <div class="action-buttons">
@@ -478,7 +481,7 @@ button.finish-btn{background:var(--accent); color:#1a1200; margin-top:4px; font-
 current payment allocation(s) — this is what's live during entry now,
 instead of the full composed bill card (see renderScanPayPanel). -->
 <div class="scan-pay-panel" id="scanPayPanel" style="display:none;">
-<div class="scan-pay-title">📲 Scan &amp; Pay</div>
+<div class="scan-pay-title" data-i18n="scanPayTitle">📲 Scan &amp; Pay</div>
 <div class="scan-pay-grid" id="scanPayGrid"></div>
 </div>
 <!-- The full bill card lives off-screen and stays display:none except for
@@ -498,7 +501,7 @@ on-screen preview during entry any more. -->
 <button type="button" class="close-btn" onclick="applyManualQty()">Set</button>
 </div>
 <div class="modal-actions">
-<button class="close-btn" onclick="toggleModal('qtyModal', false)">Close</button>
+<button class="close-btn" data-i18n="closeBtn" onclick="toggleModal('qtyModal', false)">Close</button>
 <button class="close-btn finish-btn" onclick="finishEntry()">✅ Finish Items — Go to Details</button>
 </div>
 </div>
@@ -514,7 +517,7 @@ on-screen preview during entry any more. -->
 <div class="field-hint">Short item name, up to 25 characters. Rate is entered next.</div>
 <div class="modal-actions">
 <button type="button" class="close-btn" onclick="openManageItemsModal()">🛠 Manage Items</button>
-<button class="close-btn" onclick="toggleModal('itemModal', false)">Close</button>
+<button class="close-btn" data-i18n="closeBtn" onclick="toggleModal('itemModal', false)">Close</button>
 <button class="close-btn finish-btn" onclick="finishEntry()">✅ Finish Items — Go to Details</button>
 </div>
 </div>
@@ -554,7 +557,7 @@ on-screen preview during entry any more. -->
 <div id="manageItemsList" class="manage-list"></div>
 <div class="modal-actions">
 <button type="button" class="close-btn add-new-btn" onclick="openNewItemModal('manage')">➕ Add New Item</button>
-<button type="button" class="close-btn" onclick="toggleModal('manageItemsModal', false)">Close</button>
+<button type="button" class="close-btn" data-i18n="closeBtn" onclick="toggleModal('manageItemsModal', false)">Close</button>
 </div>
 </div>
 </div>
@@ -565,7 +568,7 @@ on-screen preview during entry any more. -->
 <div class="modal-actions">
 <button type="button" class="close-btn add-new-btn" onclick="openNewPaymentModal('order')">➕ Add New Payment Method</button>
 <button type="button" class="close-btn" onclick="openManagePaymentModal()">🛠 Manage Payment Methods</button>
-<button class="close-btn" onclick="closePaymentMethodModal()">Close</button>
+<button class="close-btn" data-i18n="closeBtn" onclick="closePaymentMethodModal()">Close</button>
 </div>
 </div>
 </div>
@@ -596,7 +599,7 @@ on-screen preview during entry any more. -->
 <div id="managePaymentList" class="manage-list"></div>
 <div class="modal-actions">
 <button type="button" class="close-btn add-new-btn" onclick="openNewPaymentModal('manage')">➕ Add New Payment Method</button>
-<button type="button" class="close-btn" onclick="toggleModal('managePaymentModal', false)">Close</button>
+<button type="button" class="close-btn" data-i18n="closeBtn" onclick="toggleModal('managePaymentModal', false)">Close</button>
 </div>
 </div>
 </div>
@@ -608,12 +611,12 @@ on-screen preview during entry any more. -->
 <input type="text" id="orderHistorySearch" placeholder="Search name, phone or order no." oninput="renderOrderHistoryList(filterOrderHistory(this.value))">
 </div>
 <div id="orderHistoryList" class="item-list"></div>
-<button class="close-btn" onclick="toggleModal('orderHistoryModal', false)">Close</button>
+<button class="close-btn" data-i18n="closeBtn" onclick="toggleModal('orderHistoryModal', false)">Close</button>
 </div>
 </div>
 <div id="helpModal" class="modal-overlay" style="display:none;">
 <div class="modal-box">
-<h3>How to use this app</h3>
+<h3 data-i18n="helpModalTitle">How to use this app</h3>
 <ol>
 <li><b>Programme Logic & Flow:</b> The application operates sequentially from top to bottom, moving from order configuration and item selection to payment allocation, automated QR generation, and final action execution (WhatsApp or download).</li>
 <li><b>Expected Input:</b>
@@ -638,19 +641,94 @@ on-screen preview during entry any more. -->
 </ul>
 </li>
 </ol>
+<div class="help-lang-row">
+<button id="langToggleBtn" type="button" class="close-btn" onclick="toggleLanguage()"><span>🌐</span><span id="langToggleLabel">தமிழ்</span></button>
+<a class="close-btn" data-i18n="manageFixedBtn" href="manage.html" target="_blank" rel="noopener">🗂 Manage</a>
+</div>
 <div class="modal-actions">
-<button type="button" class="close-btn" onclick="toggleModal('helpModal', false); openManageItemsModal();">🛠 Manage Items</button>
-<button type="button" class="close-btn" onclick="toggleModal('helpModal', false); openManagePaymentModal();">💳 Manage Payment Methods</button>
-<a class="close-btn" href="manage.html" target="_blank" rel="noopener" style="text-decoration:none; display:inline-block;">🗂 Manage Fixed Values</a>
-<button type="button" class="close-btn" onclick="backupCloudData()">☁️⬇️ Backup Cloud Data to Device</button>
-<button type="button" class="close-btn" onclick="triggerRestorePicker()">☁️⬆️ Restore Cloud Data from Backup</button>
+<button type="button" class="close-btn" data-i18n="manageItemsBtn" onclick="toggleModal('helpModal', false); openManageItemsModal();">🛠 Manage Items</button>
+<button type="button" class="close-btn" data-i18n="managePayBtn" onclick="toggleModal('helpModal', false); openManagePaymentModal();">💳 Manage Payment Methods</button>
+<button type="button" class="close-btn" data-i18n="backupBtn" onclick="backupCloudData()">☁️⬇️ Backup Cloud Data to Device</button>
+<button type="button" class="close-btn" data-i18n="restoreBtn" onclick="triggerRestorePicker()">☁️⬆️ Restore Cloud Data from Backup</button>
 <input type="file" id="restoreFileInput" accept="application/json,.json" style="display:none;" onchange="restoreCloudData(event)">
-<button class="close-btn" onclick="toggleModal('helpModal', false)">Close</button>
+<button class="close-btn" data-i18n="closeBtn" onclick="toggleModal('helpModal', false)">Close</button>
 </div>
 </div>
 </div>
 <script>
 const $ = id => document.getElementById(id);
+
+// ---- English / Tamil UI language toggle ----
+// Static labels/captions/placeholders are tagged data-i18n="key" (text) or
+// data-i18n-placeholder="key" (input placeholder) in the HTML; this looks
+// each key up here and swaps it in. Dynamic action-button captions
+// (New/Discard/Edit/Save/WA Pay/...) go through setActionLabel() with a
+// translation key instead of a literal string, so they stay correct
+// across a language switch too. Scope: the entry screen, action buttons,
+// and modal titles/buttons — not user-entered data (item names, customer
+// names) or the exported bill image, which are content, not UI chrome.
+const TRANSLATIONS = {
+  custNamePlaceholder: { en: 'Customer name (max 20)', ta: 'கஸ்டமர் பெயர் (max 20)' },
+  custPhonePlaceholder: { en: 'Mobile (13 digits)', ta: 'மொபைல் நம்பர் (13 இலக்கம்)' },
+  phoneHint: { en: 'Optional — required only to send on WhatsApp', ta: 'இது கட்டாயமில்லை — WhatsApp-ல் அனுப்ப மட்டும் வேணும்' },
+  thHash: { en: '#', ta: '#' },
+  thItem: { en: 'Item', ta: 'ஐட்டம்' },
+  thQty: { en: 'Qty', ta: 'எண்ணிக்கை' },
+  thFree: { en: 'Free', ta: 'இலவசம்' },
+  thRate: { en: 'Rate', ta: 'விலை' },
+  thAmt: { en: 'Amt', ta: 'தொகை' },
+  footerLabel: { en: 'Count & Sub Total', ta: 'எண்ணிக்கை & சப் டோட்டல்' },
+  rateHint: { en: 'Rate & Free quantities are auto-filled and skipped by default — tap manually to alter them.', ta: 'விலையும் இலவச எண்ணிக்கையும் தானா நிரப்பி விடும் — மாத்த வேணும்னா தொடுங்க.' },
+  discountPlaceholder: { en: 'Discount', ta: 'டிஸ்கவுண்ட்' },
+  discountHint: { en: 'Amount to add or subtract from the subtotal', ta: 'சப் டோட்டல்ல கூட்ட/கழிக்க வேண்டிய தொகை' },
+  paymentAllocLabel: { en: 'Payment Allocation', ta: 'பேமெண்ட் விவரம்' },
+  addPayBtn: { en: '+ Add Payment Method', ta: '+ பேமெண்ட் மெத்தட் சேர்க்க' },
+  paymentStatusDefault: { en: 'Add items to determine the order amount.', ta: 'ஆர்டர் தொகைக்கு முதலில் பொருட்களைச் சேருங்க.' },
+  scanPayTitle: { en: '📲 Scan & Pay', ta: '📲 ஸ்கேன் பண்ணி பணம் செலுத்துங்க' },
+  helpBtnLabel: { en: 'Help', ta: 'உதவி' },
+  actNew: { en: 'New', ta: 'புதிய பில்' },
+  actDiscard: { en: 'Discard', ta: 'கேன்சல்' },
+  actEdit: { en: 'Edit', ta: 'எடிட்' },
+  actSave: { en: 'Save', ta: 'சேவ்' },
+  actSavingBill: { en: 'Saving bill', ta: 'பில் சேவ் ஆகுது' },
+  actSavingImage: { en: 'Saving image', ta: 'படம் சேவ் ஆகுது' },
+  actOpenWa: { en: 'Open WA', ta: 'WA திற' },
+  actSaving: { en: 'Saving', ta: 'சேவ் ஆகுது' },
+  actSaved: { en: 'Saved', ta: 'சேவ் ஆகிடுச்சு' },
+  actWaPay: { en: 'WA Pay', ta: 'WA பணம்' },
+  actWaImage: { en: 'WA Image', ta: 'WA படம்' },
+  helpModalTitle: { en: 'How to use this app', ta: 'இந்த ஆப்ப எப்படி யூஸ் பண்றது' },
+  manageItemsBtn: { en: '🛠 Manage Items', ta: '🛠 ஐட்டம் மேனேஜ்' },
+  managePayBtn: { en: '💳 Manage Payment Methods', ta: '💳 பேமெண்ட் மேனேஜ்' },
+  manageFixedBtn: { en: '🗂 Manage', ta: '🗂 நிர்வகி' },
+  backupBtn: { en: '☁️⬇️ Backup Cloud Data to Device', ta: '☁️⬇️ கிளவுட் டேட்டா டிவைஸ்ல காப்பி எடு' },
+  restoreBtn: { en: '☁️⬆️ Restore Cloud Data from Backup', ta: '☁️⬆️ காப்பியிலிருந்து டேட்டாவை திரும்ப போடு' },
+  closeBtn: { en: 'Close', ta: 'மூடு' }
+};
+let currentLang = 'en';
+try{ currentLang = localStorage.getItem('sf_lang') || 'en'; }catch(e){}
+function applyLanguage(){
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const t = TRANSLATIONS[el.dataset.i18n];
+    if(t) el.textContent = t[currentLang] || t.en;
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    const t = TRANSLATIONS[el.dataset.i18nPlaceholder];
+    if(t) el.placeholder = t[currentLang] || t.en;
+  });
+  const toggleLabel = $('langToggleLabel');
+  if(toggleLabel) toggleLabel.textContent = currentLang === 'en' ? 'தமிழ்' : 'English';
+  // Dynamic action-button captions aren't plain text nodes (see
+  // setActionLabel), so refresh them explicitly rather than via the
+  // data-i18n sweep above.
+  if(typeof updateDynamicActionButtons === 'function' && typeof viewLocked !== 'undefined') updateDynamicActionButtons();
+  if(typeof resetActionLabel === 'function'){ resetActionLabel('btnPay'); resetActionLabel('btnImage'); }
+}
+function toggleLanguage(){
+  currentLang = currentLang === 'en' ? 'ta' : 'en';
+  try{ localStorage.setItem('sf_lang', currentLang); }catch(e){}
+  applyLanguage();
+}
 const LOG_MAX_LINES = 300;
 function logMsg(text, isError){
 const panel = $('formMsg');
@@ -1938,11 +2016,11 @@ updateDynamicActionButtons();
 }
 function updateDynamicActionButtons(){
 if(viewLocked){
-setActionLabel('btnReset', '🆕', 'New');
-setActionLabel('btnSave', '✏️', 'Edit');
+setActionLabel('btnReset', '🆕', 'actNew');
+setActionLabel('btnSave', '✏️', 'actEdit');
 } else {
-setActionLabel('btnReset', '↩️', 'Discard');
-setActionLabel('btnSave', '💾', 'Save');
+setActionLabel('btnReset', '↩️', 'actDiscard');
+setActionLabel('btnSave', '💾', 'actSave');
 }
 }
 function handleActionBtn1(){ if(viewLocked) resetOrder(); else discardChanges(); }
@@ -2152,12 +2230,14 @@ return null;
 return phone;
 }
 const ACTION_DEFAULTS = {
-btnPay:   { icon: '💰', text: 'WA Pay' },
-btnImage: { icon: '🖼️', text: 'WA Image' }
+btnPay:   { icon: '💰', text: 'actWaPay' },
+btnImage: { icon: '🖼️', text: 'actWaImage' }
 };
-function setActionLabel(btnId, icon, text){
+function setActionLabel(btnId, icon, textKey){
 const btn = $(btnId);
-if(btn) btn.innerHTML = `<span class="ic">${icon}</span><span class="lbl">${text}</span>`;
+const t = TRANSLATIONS[textKey];
+const label = t ? (t[currentLang] || t.en) : textKey; // fall back to a literal string if no key matches
+if(btn) btn.innerHTML = `<span class="ic">${icon}</span><span class="lbl">${label}</span>`;
 }
 function resetActionLabel(btnId){
 const d = ACTION_DEFAULTS[btnId];
@@ -2175,19 +2255,19 @@ if(!validateForSend(data)){ if(waWindow) waWindow.close(); return; }
 const phone = requirePhone(data); if(!phone){ if(waWindow) waWindow.close(); return; }
 btn.disabled = true; btn.dataset.state = 'busy';
 if(isDirty || !currentOrderId){
-setActionLabel(btnId, '⏳', 'Saving bill');
+setActionLabel(btnId, '⏳', 'actSavingBill');
 await persistOrderRecord(data);
 isDirty = false;
-setActionLabel(btnId, '⏳', 'Saving image');
+setActionLabel(btnId, '⏳', 'actSavingImage');
 const blob = await captureFullBillCardBlob(data);
 if(!blob) throw new Error('Image creation failed.');
 const fileName = `${data.orderNo}-${sanitizeFileName(data.custName)}.png`;
 await saveImageBlob(blob, fileName, currentOrderId);
-setActionLabel(btnId, '📲', 'Open WA');
+setActionLabel(btnId, '📲', 'actOpenWa');
 logMsg('Saved: ' + fileName + ' — opening WhatsApp…');
 await new Promise(resolve => setTimeout(resolve, 400));
 } else {
-setActionLabel(btnId, '📲', 'Open WA');
+setActionLabel(btnId, '📲', 'actOpenWa');
 logMsg('Already saved — opening WhatsApp…');
 }
 const url = buildWaUrl(data, phone);
@@ -2477,14 +2557,14 @@ try{
 const data = await updateLivePreview();
 if(!validateForSend(data)) return;
 btn.disabled = true;
-setActionLabel('btnSave', '⏳', 'Saving');
+setActionLabel('btnSave', '⏳', 'actSaving');
 await persistOrderRecord(data); // local save is instant; cloud sync runs in the background
 isDirty = false;
 const blob = await captureFullBillCardBlob(data);
 if(!blob) throw new Error('Image creation failed.');
 const fileName = `${data.orderNo}-${sanitizeFileName(data.custName)}.png`;
 await saveImageBlob(blob, fileName, currentOrderId);
-setActionLabel('btnSave', '✅', 'Saved');
+setActionLabel('btnSave', '✅', 'actSaved');
 logMsg('Saved: ' + fileName + ' — syncing to cloud in the background.');
 btn.disabled = false;
 setTimeout(() => applyContentLock(true), 650);
@@ -2537,6 +2617,9 @@ renderPaymentRows();
 buildRows();
 ensureFreshBillIfEmpty();
 applyContentLock(false); // fresh page load = a new, immediately-editable bill
+applyLanguage();
+window.addEventListener('error', () => { if(!window.FB) $('cloudStatusBanner').style.display = 'block'; });
+setTimeout(() => { if(!window.FB) $('cloudStatusBanner').style.display = 'block'; }, 4000);
 updateLivePreview();
 setInterval(refreshOrderNo, 60000);
 setupClipboardPhoneCapture();
