@@ -362,30 +362,27 @@ transition:height 0.18s ease; outline:none;
 #formMsg .log-line{white-space:pre-wrap; word-break:break-word; padding:1px 0; border-bottom:1px dashed #eef3f3;}
 #formMsg .log-line:last-child{border-bottom:none;}
 #formMsg .log-err{color:var(--danger); font-weight:800;}
-/* Cloud sync status indicator — a small floating dot pinned near the
-   right edge of the log bar. Long-press (or click-and-hold) then drag to
-   move it anywhere on screen; it stays wherever it's released (position
-   remembered across reloads). Four resting states plus an error state,
-   each a single filled-circle-with-ring glyph, colored/animated by
-   how far the local-cache-to-cloud connection has progressed:
-   grey (static) = local only, blue (pulsing) = talking to the cloud now,
-   green (static) = confirmed synced, red (static) = broken/missing. */
+/* Cloud sync status indicator — a small floating cloud-outline-around-a-
+   circle glyph pinned near the right edge of the log bar. Long-press (or
+   click-and-hold) then drag to move it anywhere on screen; it stays
+   wherever it's released (position remembered across reloads). The
+   circle (local cache) and the cloud outline (cloud data) are two
+   independent layers, each its own colour: grey = inactive, blue with a
+   soft pulse = actively connecting, green = confirmed present/synced,
+   red = missing/broken. The SVG fills the whole circular container edge
+   to edge — no internal padding. */
 .sync-indicator{
 position:fixed; right:8px; bottom:8px; z-index:90;
-width:22px; height:22px; border-radius:50%;
-display:flex; align-items:center; justify-content:center;
-font-size:15px; line-height:1; cursor:grab; user-select:none;
+width:26px; height:26px; border-radius:50%;
+padding:0; margin:0; display:block; cursor:grab; user-select:none;
 -webkit-user-select:none; touch-action:none;
 background:#ffffff; box-shadow:0 1px 4px rgba(0,0,0,0.25);
-transition:background-color 0.25s ease, color 0.25s ease;
 }
+.sync-indicator svg{display:block; width:100%; height:100%;}
 .sync-indicator.dragging{cursor:grabbing; box-shadow:0 3px 10px rgba(0,0,0,0.35); transform:scale(1.12);}
-.sync-indicator.sync-local-synced{color:#9AA3A3;}
-.sync-indicator.sync-local-connected{color:#6B7676;}
-.sync-indicator.sync-cloud-connected{color:#1E88E5; animation:syncPulse 1.6s ease-in-out infinite;}
-.sync-indicator.sync-cloud-synced{color:#1B8A4B;}
-.sync-indicator.sync-error{color:#c0392b;}
-@keyframes syncPulse{0%,100%{opacity:1; transform:scale(1);} 50%{opacity:0.55; transform:scale(1.2);}}
+.sync-indicator .pulse{animation:syncPulse 1.6s ease-in-out infinite;}
+.sync-indicator .fpulse{animation:syncPulse 0.7s ease-in-out infinite;}
+@keyframes syncPulse{0%,100%{opacity:1;} 50%{opacity:0.4;}}
 body{padding-bottom:calc(2 * 1.35 * 10.5px + 16px + env(safe-area-inset-bottom));}
 .modal-overlay{position:fixed; inset:0; background:rgba(0,0,0,0.55); display:flex; align-items:center; justify-content:center; z-index:100; padding:0;}
 .modal-box{background:#fff; border-radius:var(--radius); padding:0; max-height:85vh; overflow-y:auto; width:100%; font-weight:700; box-shadow:none; display:flex; flex-direction:column;}
@@ -514,7 +511,7 @@ see buildFullBillCard()/captureFullBillCardBlob(). It's never the live
 on-screen preview during entry any more. -->
 <div class="image-wrap" id="imageWrap" style="display:none;"><div id="orderImage"></div></div>
 <div id="formMsg" tabindex="600" aria-label="Activity log"></div>
-<div id="cloudSyncIndicator" class="sync-indicator sync-local-synced" title="Local cache loaded">◉</div>
+<div id="cloudSyncIndicator" class="sync-indicator" title="Local cache loaded"><svg viewBox="0 0 24 24" fill="none"><path class="si-cloud" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" stroke="#9ca3af" stroke-width="1.8"/><circle class="si-circle" cx="10" cy="15" r="2.8" fill="#9ca3af"/></svg></div>
 <!-- Modals -->
 <div id="qtyModal" class="modal-overlay" style="display:none;">
 <div class="modal-box">
@@ -768,23 +765,37 @@ if(document.activeElement !== panel) panel.scrollTop = panel.scrollHeight;
 }
 
 // ---- Cloud sync status indicator ----
-// One glyph, five possible states, wired to the real local/cloud
-// connection lifecycle (see the calls to setSyncIndicatorState below, at
-// each stage: local cache read, Firebase module connecting, first
-// confirmed cloud read, and the existing no-connection timeout).
-const SYNC_STATE_TITLES = {
-'local-synced': 'Local cache loaded',
-'local-connected': 'Local cache ready',
-'cloud-connected': 'Connecting to the cloud…',
-'cloud-synced': 'Cloud synced',
-'error': 'Not connected to the cloud'
+// One glyph — a cloud outline around a center circle — where the circle
+// (local cache) and the cloud outline (cloud data) are two independent
+// layers, each carrying its own colour/animation:
+//   grey = inactive/not yet involved
+//   blue, soft pulse = actively connecting/initializing
+//   green = confirmed present/synced
+//   red = missing/broken
+// The 14 combinations the design covers all fall out of these two
+// independently-set layers rather than needing 14 separate hardcoded
+// states — e.g. "cloud data connected" is simply circle=green (local
+// already settled) + cloud=blue (still connecting).
+const SYNC_LAYER_COLORS = { grey:'#9ca3af', blue:'#3b82f6', green:'#22c55e', red:'#ef4444' };
+const SYNC_LAYER_TITLES = {
+grey: 'not active', blue: 'connecting…', green: 'synced', red: 'missing/broken'
 };
-function setSyncIndicatorState(state){
+let localSyncLayer = 'grey', cloudSyncLayer = 'grey';
+function renderSyncIndicator(){
 const el = $('cloudSyncIndicator');
 if(!el) return;
-el.className = 'sync-indicator sync-' + state + (el.classList.contains('dragging') ? ' dragging' : '');
-el.title = SYNC_STATE_TITLES[state] || '';
+const circle = el.querySelector('.si-circle'), cloud = el.querySelector('.si-cloud');
+if(!circle || !cloud) return;
+const localColor = localSyncLayer === 'blue-fast' ? SYNC_LAYER_COLORS.blue : SYNC_LAYER_COLORS[localSyncLayer];
+circle.setAttribute('fill', localColor);
+circle.setAttribute('class', 'si-circle' + (localSyncLayer === 'blue' ? ' pulse' : localSyncLayer === 'blue-fast' ? ' fpulse' : ''));
+cloud.setAttribute('stroke', SYNC_LAYER_COLORS[cloudSyncLayer]);
+cloud.setAttribute('class', 'si-cloud' + (cloudSyncLayer === 'blue' ? ' pulse' : ''));
+const localTitle = localSyncLayer === 'blue-fast' ? 'initializing…' : SYNC_LAYER_TITLES[localSyncLayer];
+el.title = `Local cache: ${localTitle} · Cloud data: ${SYNC_LAYER_TITLES[cloudSyncLayer]}`;
 }
+function setLocalSyncLayer(state){ localSyncLayer = state; renderSyncIndicator(); }
+function setCloudSyncLayer(state){ cloudSyncLayer = state; renderSyncIndicator(); }
 
 // Long-press (or click-and-hold) then drag to reposition; releases stay
 // put exactly where dropped, remembered across reloads via localStorage.
@@ -1668,7 +1679,7 @@ logMsg('Restore complete — cloud and this device now match the backup.');
 let configUnsubscribers = [];
 function subscribeConfigCloudSync(){
 if(!window.FB) return;
-setSyncIndicatorState('cloud-connected');
+setCloudSyncLayer('blue');
 const { db, doc, onSnapshot } = window.FB;
 configUnsubscribers.forEach(unsub => { try{ unsub(); }catch(e){} });
 configUnsubscribers = [
@@ -1749,7 +1760,7 @@ pushConfigDocToCloud('themes', { list: STORED_THEMES });
 }catch(e){ console.error('[config sync] themes error', e); }
 saveSettingsLocal();
 scheduleUpdate();
-setSyncIndicatorState('cloud-synced');
+setCloudSyncLayer('green');
 }
 window.addEventListener('firebase-ready', subscribeConfigCloudSync);
 function applyCustomItem(){
@@ -2711,8 +2722,10 @@ $('orderNo').value = deriveOrderNo($('orderDate').value);
 logMsg('Reload detected empty items — starting a new bill.');
 }
 }
+setLocalSyncLayer('blue-fast'); // local cache initializing — brief, fast pulse
 loadItemsAndReceivers();
-setSyncIndicatorState('local-connected'); // local storage read attempted without throwing
+try{ localStorage.setItem('__sf_probe', '1'); localStorage.removeItem('__sf_probe'); setLocalSyncLayer('green'); }
+catch(e){ setLocalSyncLayer('red'); } // local storage unavailable (e.g. private browsing)
 setupSyncIndicatorDrag();
 randomizeAppreciation();
 applyRandomTheme();
@@ -2723,8 +2736,8 @@ buildRows();
 ensureFreshBillIfEmpty();
 applyContentLock(false); // fresh page load = a new, immediately-editable bill
 applyLanguage();
-window.addEventListener('error', () => { if(!window.FB){ $('cloudStatusBanner').style.display = 'block'; setSyncIndicatorState('error'); } });
-setTimeout(() => { if(!window.FB){ $('cloudStatusBanner').style.display = 'block'; setSyncIndicatorState('error'); } }, 4000);
+window.addEventListener('error', () => { if(!window.FB){ $('cloudStatusBanner').style.display = 'block'; setCloudSyncLayer('red'); } });
+setTimeout(() => { if(!window.FB){ $('cloudStatusBanner').style.display = 'block'; setCloudSyncLayer('red'); } }, 4000);
 updateLivePreview();
 setInterval(refreshOrderNo, 60000);
 setupClipboardPhoneCapture();
