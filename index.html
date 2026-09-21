@@ -362,27 +362,6 @@ transition:height 0.18s ease; outline:none;
 #formMsg .log-line{white-space:pre-wrap; word-break:break-word; padding:1px 0; border-bottom:1px dashed #eef3f3;}
 #formMsg .log-line:last-child{border-bottom:none;}
 #formMsg .log-err{color:var(--danger); font-weight:800;}
-/* Cloud sync status indicator — a small floating cloud-outline-around-a-
-   circle glyph pinned near the right edge of the log bar. Long-press (or
-   click-and-hold) then drag to move it anywhere on screen; it stays
-   wherever it's released (position remembered across reloads). The
-   circle (local cache) and the cloud outline (cloud data) are two
-   independent layers, each its own colour: grey = inactive, blue with a
-   soft pulse = actively connecting, green = confirmed present/synced,
-   red = missing/broken. The SVG fills the whole circular container edge
-   to edge — no internal padding. */
-.sync-indicator{
-position:fixed; right:8px; bottom:8px; z-index:90;
-width:26px; height:26px; border-radius:50%;
-padding:0; margin:0; display:block; cursor:grab; user-select:none;
--webkit-user-select:none; touch-action:none;
-background:#ffffff; box-shadow:0 1px 4px rgba(0,0,0,0.25);
-}
-.sync-indicator svg{display:block; width:100%; height:100%;}
-.sync-indicator.dragging{cursor:grabbing; box-shadow:0 3px 10px rgba(0,0,0,0.35); transform:scale(1.12);}
-.sync-indicator .pulse{animation:syncPulse 1.6s ease-in-out infinite;}
-.sync-indicator .fpulse{animation:syncPulse 0.7s ease-in-out infinite;}
-@keyframes syncPulse{0%,100%{opacity:1;} 50%{opacity:0.4;}}
 body{padding-bottom:calc(2 * 1.35 * 10.5px + 16px + env(safe-area-inset-bottom));}
 .modal-overlay{position:fixed; inset:0; background:rgba(0,0,0,0.55); display:flex; align-items:center; justify-content:center; z-index:100; padding:0;}
 .modal-box{background:#fff; border-radius:var(--radius); padding:0; max-height:85vh; overflow-y:auto; width:100%; font-weight:700; box-shadow:none; display:flex; flex-direction:column;}
@@ -439,7 +418,7 @@ button.finish-btn{background:var(--accent); color:#1a1200; margin-top:4px; font-
 <div id="cloudStatusBanner" style="display:none; background:#FFF3E0; color:#8a4b00; padding:8px 10px; font-size:11.5px; font-weight:700; text-align:center; border-bottom:2px solid #FFB300;">⚠️ Not connected to the cloud yet — bills still save on this device, but won't sync. If this file was opened directly from your computer rather than a website, that's usually why.</div>
 <div class="topbar">
 <div class="tb-side">
-<input type="date" id="orderDate" tabindex="1" onchange="refreshOrderNo(); scheduleUpdate();" onkeydown="handleEnterFocus(event, 'orderNo')" onclick="this.showPicker?.(); this.click();">
+<input type="date" id="orderDate" tabindex="1" onchange="refreshOrderNo(); scheduleUpdate(); focusField('orderNo');" onkeydown="handleEnterFocus(event, 'orderNo')" onclick="this.showPicker?.();">
 </div>
 <button id="helpBtn" onclick="toggleModal('helpModal', true)"><span>❓</span><span data-i18n="helpBtnLabel">Help</span></button>
 <div class="tb-side tb-right">
@@ -484,7 +463,6 @@ button.finish-btn{background:var(--accent); color:#1a1200; margin-top:4px; font-
 <span id="edOrderAmount">₹0</span>
 </div>
 </div>
-<div class="words" id="edPaymentBreakdown" style="display:none;"><b>Payment methods</b><div id="edPaymentBreakdownRows"></div></div>
 <label style="margin-top:0" data-i18n="paymentAllocLabel">Payment Allocation</label>
 <div id="paymentRowsContainer"></div>
 <button type="button" class="add-pay-btn" data-i18n="addPayBtn" onclick="addPaymentRow()">+ Add Payment Method</button>
@@ -511,7 +489,6 @@ see buildFullBillCard()/captureFullBillCardBlob(). It's never the live
 on-screen preview during entry any more. -->
 <div class="image-wrap" id="imageWrap" style="display:none;"><div id="orderImage"></div></div>
 <div id="formMsg" tabindex="600" aria-label="Activity log"></div>
-<div id="cloudSyncIndicator" class="sync-indicator" title="Local cache loaded"><svg viewBox="0 0 24 24" fill="none"><path class="si-cloud" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" stroke="#9ca3af" stroke-width="1.8"/><circle class="si-circle" cx="10" cy="15" r="2.8" fill="#9ca3af"/></svg></div>
 <!-- Modals -->
 <div id="qtyModal" class="modal-overlay" style="display:none;">
 <div class="modal-box">
@@ -764,95 +741,6 @@ while(panel.children.length > LOG_MAX_LINES) panel.removeChild(panel.firstChild)
 if(document.activeElement !== panel) panel.scrollTop = panel.scrollHeight;
 }
 
-// ---- Cloud sync status indicator ----
-// One glyph — a cloud outline around a center circle — where the circle
-// (local cache) and the cloud outline (cloud data) are two independent
-// layers, each carrying its own colour/animation:
-//   grey = inactive/not yet involved
-//   blue, soft pulse = actively connecting/initializing
-//   green = confirmed present/synced
-//   red = missing/broken
-// The 14 combinations the design covers all fall out of these two
-// independently-set layers rather than needing 14 separate hardcoded
-// states — e.g. "cloud data connected" is simply circle=green (local
-// already settled) + cloud=blue (still connecting).
-const SYNC_LAYER_COLORS = { grey:'#9ca3af', blue:'#3b82f6', green:'#22c55e', red:'#ef4444' };
-const SYNC_LAYER_TITLES = {
-grey: 'not active', blue: 'connecting…', green: 'synced', red: 'missing/broken'
-};
-let localSyncLayer = 'grey', cloudSyncLayer = 'grey';
-function renderSyncIndicator(){
-const el = $('cloudSyncIndicator');
-if(!el) return;
-const circle = el.querySelector('.si-circle'), cloud = el.querySelector('.si-cloud');
-if(!circle || !cloud) return;
-const localColor = localSyncLayer === 'blue-fast' ? SYNC_LAYER_COLORS.blue : SYNC_LAYER_COLORS[localSyncLayer];
-circle.setAttribute('fill', localColor);
-circle.setAttribute('class', 'si-circle' + (localSyncLayer === 'blue' ? ' pulse' : localSyncLayer === 'blue-fast' ? ' fpulse' : ''));
-cloud.setAttribute('stroke', SYNC_LAYER_COLORS[cloudSyncLayer]);
-cloud.setAttribute('class', 'si-cloud' + (cloudSyncLayer === 'blue' ? ' pulse' : ''));
-const localTitle = localSyncLayer === 'blue-fast' ? 'initializing…' : SYNC_LAYER_TITLES[localSyncLayer];
-el.title = `Local cache: ${localTitle} · Cloud data: ${SYNC_LAYER_TITLES[cloudSyncLayer]}`;
-}
-function setLocalSyncLayer(state){ localSyncLayer = state; renderSyncIndicator(); }
-function setCloudSyncLayer(state){ cloudSyncLayer = state; renderSyncIndicator(); }
-
-// Long-press (or click-and-hold) then drag to reposition; releases stay
-// put exactly where dropped, remembered across reloads via localStorage.
-// A short hold delay (and a small movement tolerance before that delay
-// elapses) keeps a quick tap from being mistaken for a drag.
-function setupSyncIndicatorDrag(){
-const el = $('cloudSyncIndicator');
-if(!el) return;
-const LS_POS_KEY = 'sf_sync_indicator_pos';
-let holdTimer = null, dragging = false, startX = 0, startY = 0, origRight = 0, origBottom = 0;
-
-try{
-const saved = JSON.parse(localStorage.getItem(LS_POS_KEY) || 'null');
-if(saved && saved.right != null && saved.bottom != null){
-el.style.right = saved.right; el.style.bottom = saved.bottom;
-}
-}catch(e){}
-
-function currentOffsets(){
-const r = el.getBoundingClientRect();
-return { right: window.innerWidth - r.right, bottom: window.innerHeight - r.bottom };
-}
-function onMove(e){
-if(!dragging) return;
-e.preventDefault();
-const dx = e.clientX - startX, dy = e.clientY - startY;
-const size = el.offsetWidth || 22;
-let newRight = Math.max(2, Math.min(window.innerWidth - size - 2, origRight - dx));
-let newBottom = Math.max(2, Math.min(window.innerHeight - size - 2, origBottom - dy));
-el.style.right = newRight + 'px';
-el.style.bottom = newBottom + 'px';
-}
-function endDrag(){
-clearTimeout(holdTimer);
-document.removeEventListener('pointermove', onMove);
-document.removeEventListener('pointerup', endDrag);
-document.removeEventListener('pointercancel', endDrag);
-if(dragging){
-dragging = false;
-el.classList.remove('dragging');
-try{ localStorage.setItem(LS_POS_KEY, JSON.stringify({ right: el.style.right, bottom: el.style.bottom })); }catch(e){}
-}
-}
-el.addEventListener('pointerdown', (e) => {
-startX = e.clientX; startY = e.clientY;
-const pos = currentOffsets();
-origRight = pos.right; origBottom = pos.bottom;
-holdTimer = setTimeout(() => {
-dragging = true;
-el.classList.add('dragging');
-if(navigator.vibrate) navigator.vibrate(15);
-}, 420);
-document.addEventListener('pointermove', onMove);
-document.addEventListener('pointerup', endDrag);
-document.addEventListener('pointercancel', endDrag);
-});
-}
 function fitTextToWidth(el, maxPx, minPx){
 if(!el) return;
 el.style.fontSize = maxPx + 'px';
@@ -1679,7 +1567,7 @@ logMsg('Restore complete — cloud and this device now match the backup.');
 let configUnsubscribers = [];
 function subscribeConfigCloudSync(){
 if(!window.FB) return;
-setCloudSyncLayer('blue');
+logMsg('Connecting to the cloud…');
 const { db, doc, onSnapshot } = window.FB;
 configUnsubscribers.forEach(unsub => { try{ unsub(); }catch(e){} });
 configUnsubscribers = [
@@ -1760,7 +1648,7 @@ pushConfigDocToCloud('themes', { list: STORED_THEMES });
 }catch(e){ console.error('[config sync] themes error', e); }
 saveSettingsLocal();
 scheduleUpdate();
-setCloudSyncLayer('green');
+logMsg('Cloud synced — company/scan-note/theme settings loaded.');
 }
 window.addEventListener('firebase-ready', subscribeConfigCloudSync);
 function applyCustomItem(){
@@ -1983,13 +1871,6 @@ $('footerRateSum').textContent = '-';
 $('footerAmt').textContent = String(Math.round(data.subtotalVal)).slice(-7);
 $('edOrderAmount').textContent = inr(data.orderAmountVal);
 $('edAmountWords').textContent = data.amountWords;
-const bdEl = $('edPaymentBreakdown'), bdRows = $('edPaymentBreakdownRows');
-if(data.paymentAllocations.length){
-bdEl.style.display = 'block';
-bdRows.innerHTML = data.paymentAllocations.map(a =>
-`<div class="trow" style="border:none; padding:1px 0;"><span>${esc(a.receiver ? a.receiver.name : 'Unassigned')}</span><span>${inr(a.amount)}</span></div>`
-).join('');
-} else bdEl.style.display = 'none';
 updatePaymentStatus(data);
 }
 function orderImageTemplate(data, nonCashAllocations){
@@ -2722,11 +2603,9 @@ $('orderNo').value = deriveOrderNo($('orderDate').value);
 logMsg('Reload detected empty items — starting a new bill.');
 }
 }
-setLocalSyncLayer('blue-fast'); // local cache initializing — brief, fast pulse
 loadItemsAndReceivers();
-try{ localStorage.setItem('__sf_probe', '1'); localStorage.removeItem('__sf_probe'); setLocalSyncLayer('green'); }
-catch(e){ setLocalSyncLayer('red'); } // local storage unavailable (e.g. private browsing)
-setupSyncIndicatorDrag();
+try{ localStorage.setItem('__sf_probe', '1'); localStorage.removeItem('__sf_probe'); logMsg('Local cache ready.'); }
+catch(e){ logMsg('Local storage unavailable (e.g. private browsing) — cloud data still works, but nothing is cached on this device.', true); }
 randomizeAppreciation();
 applyRandomTheme();
 setDefaultDate();
@@ -2736,8 +2615,8 @@ buildRows();
 ensureFreshBillIfEmpty();
 applyContentLock(false); // fresh page load = a new, immediately-editable bill
 applyLanguage();
-window.addEventListener('error', () => { if(!window.FB){ $('cloudStatusBanner').style.display = 'block'; setCloudSyncLayer('red'); } });
-setTimeout(() => { if(!window.FB){ $('cloudStatusBanner').style.display = 'block'; setCloudSyncLayer('red'); } }, 4000);
+window.addEventListener('error', () => { if(!window.FB) $('cloudStatusBanner').style.display = 'block'; });
+setTimeout(() => { if(!window.FB){ $('cloudStatusBanner').style.display = 'block'; logMsg('Still not connected to the cloud after 4s — check your connection or hosting (see banner above).', true); } }, 4000);
 updateLivePreview();
 setInterval(refreshOrderNo, 60000);
 setupClipboardPhoneCapture();
